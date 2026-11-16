@@ -301,6 +301,40 @@ tr:hover .sdel,.sdel:focus{opacity:1}
   .exb{padding:10px 10px 8px}
   table.sets{width:100%}
   #toast{bottom:calc(130px + env(safe-area-inset-bottom))}
+  /* touch: no double-tap zoom, no grey flash, no text selection on buttons, no page bounce */
+  html,body{overscroll-behavior:none;-webkit-text-size-adjust:100%}
+  *{-webkit-tap-highlight-color:transparent}
+  button,.navb,.chip,.tcard,.hcard,[role=button]{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+  #main{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  /* bigger things to tap */
+  .btn{padding:10px 14px;font-size:14.5px}
+  .chip{padding:8px 13px;font-size:13.5px}
+  .chk{width:44px;height:36px}
+  .sin{padding:8px 4px;max-width:none}
+  .sdel{opacity:1;padding:8px 6px}          /* (there's no hover on a phone) */
+  .exh .ibtn{padding:7px 9px;font-size:13.5px}
+  table.sets td{padding:3px 2px}
+  /* headers: the name gets its own line, the buttons sit under it */
+  .edhead{flex-wrap:wrap;gap:8px 10px;padding:10px 0}
+  .edhead .wname{flex:1 0 100%;font-size:24px}
+  .edhead .clock{margin-right:auto}
+  .edhead .btn{flex:0 0 auto}
+  .edhead .btn.ghost{margin-left:auto}
+  .startbar{flex-direction:column;align-items:stretch;gap:10px;padding:14px 16px;margin-bottom:24px}
+  .startbar .btn{width:100%}
+  .startbar .g{align-self:flex-start}
+  .pastrow{flex-wrap:wrap}
+  h1{font-size:26px}
+  /* pop-ups slide up from the bottom, scroll inside, and keep their buttons in view */
+  #modal{padding:0;align-items:flex-end;overflow:hidden}
+  .mbox,.mbox.wide{max-width:none;max-height:calc(100dvh - env(safe-area-inset-top) - 14px);overflow:auto;border-radius:18px 18px 0 0;border-width:1px 0 0;padding:18px 16px 0;overscroll-behavior:contain}
+  .mfoot{position:sticky;bottom:0;background:var(--panel);margin:14px -16px 0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);flex-wrap:wrap}
+  .mfoot .btn{flex:1 1 auto}
+  .skgrid{grid-template-columns:1fr}
+  .skhead{grid-template-columns:1fr 1fr}
+  .stats{grid-template-columns:1fr 1fr}
+  .hcard .meta{flex-wrap:wrap;gap:4px 14px}
+  .navb[data-v="print"]{display:none}       /* printing sheets is a computer job */
 }
 @media print{
   @page{size:A4;margin:10mm}
@@ -1521,8 +1555,9 @@ function skillsView(){
   const nextUp = SKILLS.filter(sk => st.get(sk.id).next).sort((a, b) => GI(a.grade) - GI(b.grade));
   const b = S.skBranch;
   let body;
-  if (b === 'ranked'){
-    body = GRADES.map(g => { const list = SKILLS.filter(sk => sk.grade === g); if (!list.length) return '';
+  const narrow = window.matchMedia('(max-width:760px)').matches;
+  if (b === 'ranked' || narrow){
+    body = GRADES.map(g => { const list = SKILLS.filter(sk => sk.grade === g && (b === 'ranked' || sk.branch === b)); if (!list.length) return '';
       return `<h3 class="cat"><span class="g g-${g}">${gradeLabel(g)}</span> ${g === 'Scalable' ? 'Scalable' : 'Grade ' + g}</h3><div class="skgrid">${list.map(sk => { const x = st.get(sk.id);
         return `<button class="skcard" data-act="sk-open" data-id="${sk.id}"><span class="n">${esc(sk.name)}<small>${esc(BRANCHES.find(r => r[0] === sk.branch)[1])}, ${esc(sk.time)}</small></span><span class="skst l${x.level}">${x.next ? 'Next up' : SKLEVELS[x.level]}</span></button>`; }).join('')}</div>`; }).join('');
   } else {
@@ -1607,7 +1642,7 @@ function buildSkillsWorkout(){
 /* ---------- settings ---------- */
 function settingsView(){
   return `<div class="page"><div class="toprow"><div><h1>Settings</h1></div></div>
-    ${PHONE ? `<div class="pbox" style="max-width:560px"><h3>Kept on this phone</h3><p class="muted">${S.templates.length} templates, ${S.history.length} workouts. Open Repped from its home screen icon so iOS keeps them safe, and export a backup now and then.</p></div>`
+    ${PHONE ? `<div class="pbox" style="max-width:560px"><h3>Kept on this phone</h3><p class="dim" style="font-size:12px;float:right">Version ${BUILD}</p><p class="muted">${S.templates.length} templates, ${S.history.length} workouts. Open Repped from its home screen icon so iOS keeps them safe, and export a backup now and then.</p></div>`
     : `<div class="pbox" style="max-width:560px"><h3>Workouts folder</h3><p class="muted" style="margin-bottom:12px"><span class="dot ${S.connected ? '' : 'off'}" style="display:inline-block;margin-right:6px"></span>${esc(S.dirName)}: ${S.templates.length} templates, ${S.history.length} workouts</p>
       <div class="row"><button class="btn" data-act="pick">Choose a different folder</button>${S.connected ? '' : '<button class="btn red" data-act="reconnect">Reconnect</button>'}</div>
       <p class="dim" style="font-size:12.5px;margin-top:10px">Chrome or Edge can't remember folder access between visits, so you may be asked to allow it each time you open Repped.</p></div>`}
@@ -1699,6 +1734,19 @@ function doPrint(){
 /* ---------------- rest timer + clocks ---------------- */
 function startRest(sec){ S.rest = {end: Date.now() + sec * 1000, total: sec}; updateBars(); }
 let audioCtx;
+function unlockAudio(){
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain(); g.gain.value = 0; o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + .01); } catch (e) {}
+}
+document.addEventListener('pointerdown', unlockAudio, {passive: true});
+/* keep the screen on during a workout (where the phone allows it) */
+let wake = null;
+async function keepAwake(){
+  try { if (S.active && !wake && navigator.wakeLock && document.visibilityState === 'visible'){ wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); }
+    else if (!S.active && wake){ await wake.release(); wake = null; } } catch (e) { wake = null; }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible'){ keepAwake(); updateBars(); } });
+setInterval(keepAwake, 5000);
 function beep(){
   if (!S.settings.sound) return;
   try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
@@ -1706,11 +1754,12 @@ function beep(){
       const t = audioCtx.currentTime + d; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.35, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + .18); o.start(t); o.stop(t + .2); });
   } catch (e) {}
 }
+function buzz(){ try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {} }
 function updateBars(){
   const rb = $('#restbar');
   if (S.rest && S.active){
     const left = (S.rest.end - Date.now()) / 1000;
-    if (left <= 0){ S.rest = null; rb.classList.remove('on'); beep(); toast('Rest over'); }
+    if (left <= 0){ S.rest = null; rb.classList.remove('on'); beep(); buzz(); toast('Rest over'); }
     else { rb.classList.add('on'); $('#restT').textContent = fmtDur(Math.ceil(left)); $('#restFill').style.width = (100 * (1 - left / S.rest.total)) + '%'; }
   } else rb.classList.remove('on');
   const showResume = S.active && !(S.view === 'editor' && S.ed?.mode === 'active') && S.dir;
@@ -1818,7 +1867,15 @@ document.addEventListener('change', ev => { if (ev.target.id === 'bk-file'){ con
 window.addEventListener('beforeunload', ev => { if (S.active){ try { localStorage.setItem('repped-active-backup', JSON.stringify({dir: S.dirName, session: S.active})); } catch (e) {} } });
 
 /* ---------------- start up ---------------- */
-if ('serviceWorker' in navigator && location.protocol === 'https:') { navigator.serviceWorker.register('sw.js').catch(() => {}); }
+const BUILD = '2026-11-16.0855';
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+  // when you're online, look for a newer copy; it's used the next time nothing is in progress
+  const checkNew = async () => { try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const v = (await r.json()).build;
+      if (v && v !== BUILD){ let tried = ''; try { tried = localStorage.getItem('repped-tried') || ''; if (tried !== v) localStorage.setItem('repped-tried', v); } catch (e) {} if (tried === v) return; await fetch('index.html?t=' + Date.now(), {cache: 'reload'}); S._newVersion = true; if (!S.active && !document.querySelector('#modal.on') && S.view !== 'editor') location.reload(); else toast('A new version of Repped is ready. It loads next time you open the app'); } } catch (e) {} };
+  setTimeout(checkNew, 3000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(checkNew, 1500); });
+}
 (async function init(){
   EXI = exIndex();
   if (window.__reppedTestDir){ await connectHandle(await window.__reppedTestDir); if (!S.templates.length && !S.history.length && window.__reppedStarters) for (const t of starterTemplates()) await saveTemplate(t); }
