@@ -661,25 +661,29 @@ const idb = {
 };
 /* iPhone (Safari) can't open folders, so there the same files are kept inside the app, in a store that
    acts like a folder. Export backup / Import backup move everything between the computer and the phone. */
-const PHONE = !('showDirectoryPicker' in window);
+const PHONE = !('showDirectoryPicker' in window) || location.protocol === 'https:' || /[?&]app=1/.test(location.search);
+const TOUCH = window.matchMedia('(pointer:coarse)').matches;
 const notFound = () => new DOMException('Not found', 'NotFoundError');
 const phoneStore = {
-  files: null,
-  async load(){ if (!this.files) { const v = await idb.get('phonefiles'); this.files = v && typeof v === 'object' ? v : {}; } return this; },
-  save(){ return idb.set('phonefiles', this.files); },
+  files: null, meta: null,      // meta: when each file last changed here (t) and when files were deleted (gone), for syncing
+  async load(){ if (!this.files) { const v = await idb.get('phonefiles'); this.files = v && typeof v === 'object' ? v : {};
+      const m = await idb.get('phonemeta'); this.meta = m && typeof m === 'object' ? m : {}; this.meta.t = this.meta.t || {}; this.meta.gone = this.meta.gone || {}; } return this; },
+  async save(){ await idb.set('phonefiles', this.files); await idb.set('phonemeta', this.meta); },
+  touched(path){ this.meta.t[path] = Date.now(); delete this.meta.gone[path]; if (path !== 'active.json') syncSoon(); },
+  removed(path){ this.meta.gone[path] = Date.now(); delete this.meta.t[path]; if (path !== 'active.json') syncSoon(); },
 };
 class PhoneFile {
   constructor(path, name){ this.path = path; this.name = name; this.kind = 'file'; }
   async getFile(){ const t = phoneStore.files[this.path]; if (t == null) throw notFound(); return { text: async () => t }; }
   async createWritable(){ let buf = ''; const path = this.path;
-    return { write: async v => { buf += typeof v === 'string' ? v : await new Blob([v]).text(); }, close: async () => { phoneStore.files[path] = buf; await phoneStore.save(); } }; }
+    return { write: async v => { buf += typeof v === 'string' ? v : await new Blob([v]).text(); }, close: async () => { if (phoneStore.files[path] === buf) return; phoneStore.files[path] = buf; phoneStore.touched(path); await phoneStore.save(); } }; }
 }
 class PhoneDir {
   constructor(path, name){ this.path = path; this.name = name; this.kind = 'directory'; }
   sub(name){ return this.path ? this.path + '/' + name : name; }
   async getDirectoryHandle(name, o){ const p = this.sub(name); if (!(o && o.create) && !Object.keys(phoneStore.files).some(k => k.startsWith(p + '/'))) throw notFound(); return new PhoneDir(p, name); }
   async getFileHandle(name, o){ const p = this.sub(name); if (!(o && o.create) && phoneStore.files[p] == null) throw notFound(); return new PhoneFile(p, name); }
-  async removeEntry(name){ const p = this.sub(name); delete phoneStore.files[p]; await phoneStore.save(); }
+  async removeEntry(name){ const p = this.sub(name); if (phoneStore.files[p] == null) return; delete phoneStore.files[p]; phoneStore.removed(p); await phoneStore.save(); }
   async *entries(){
     const pre = this.path ? this.path + '/' : '', dirs = new Set();
     for (const k of Object.keys(phoneStore.files)) {
@@ -692,7 +696,7 @@ class PhoneDir {
   async queryPermission(){ return 'granted'; }
   async requestPermission(){ return 'granted'; }
 }
-async function phoneRoot(){ await phoneStore.load(); try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {} return new PhoneDir('', 'This phone'); }
+async function phoneRoot(){ await phoneStore.load(); try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {} return new PhoneDir('', 'This device'); }
 
 /* Backups: every file in the workouts folder (or the phone's store) in one file */
 async function allFiles(dir, pre, out){
@@ -709,7 +713,7 @@ async function exportBackup(){
   const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const name = `Repped backup ${stamp}.json`, blob = new Blob([JSON.stringify({app: APP, kind: 'backup', version: VERSION, exported: d.toISOString(), files})], {type: 'application/json'});
   const file = new File([blob], name, {type: 'application/json'});
-  if (PHONE && navigator.canShare && navigator.canShare({files: [file]})) { try { await navigator.share({files: [file], title: name}); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  if (PHONE && TOUCH && navigator.canShare && navigator.canShare({files: [file]})) { try { await navigator.share({files: [file], title: name}); return; } catch (e) { if (e.name === 'AbortError') return; } }
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   toast(`Saved ${name}`);
@@ -731,6 +735,123 @@ async function importBackup(f){
   await loadAll();
   if (S.active){ S.view = 'editor'; S.ed = {mode: 'active', doc: S.active}; }
   render(); toast('Backup imported');
+}
+
+/* ---------------- syncing between devices ----------------
+   Your phone and computer each keep their own copy, and meet in one file (repped-sync.json) in a private GitHub
+   repository of yours. Each file carries the time it last changed, so the newer copy of each wins; a workout
+   logged on one device and a template edited on the other both survive. The workout in progress is not synced. */
+const SYNC_FILE = 'repped-sync.json';
+const sync = { cfg: null, busy: false, again: false, last: 0, error: '', timer: null };
+const b64enc = t => { const u = new TextEncoder().encode(t); let o = ''; for (let i = 0; i < u.length; i += 0x8000) o += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(o); };
+const b64dec = b => new TextDecoder().decode(Uint8Array.from(atob(String(b).replace(/\s/g, '')), c => c.charCodeAt(0)));
+function ghFetch(path, opt){
+  opt = opt || {};
+  return fetch('https://api.github.com/repos/' + sync.cfg.repo + path, { method: opt.method || 'GET', cache: 'no-store', body: opt.body,
+    headers: { Authorization: 'Bearer ' + sync.cfg.token, Accept: opt.raw ? 'application/vnd.github.raw+json' : 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' } });
+}
+const ghWhy = r => r.status === 401 ? "GitHub didn't accept the token. Make a new one and connect again." : r.status === 404 ? "Couldn't find that repository with this token. Check the name and that the token is allowed to use it."
+  : r.status === 403 ? "GitHub refused: the token needs Contents set to Read and write for that repository." : 'GitHub answered ' + r.status + '.';
+function syncSoon(ms){ if (!sync.cfg) return; clearTimeout(sync.timer); sync.timer = setTimeout(() => syncNow(), ms || 6000); }
+async function syncNow(manual, tries){
+  if (!sync.cfg || !PHONE || !S.connected) return false;
+  if (sync.busy){ sync.again = true; return false; }
+  if (!navigator.onLine){ if (manual) toast("You're offline. It will sync when you're back online", true); return false; }
+  // while a workout or template is being edited, what's on screen comes first; the sync waits
+  if (S.view === 'editor' && S.ed){ syncSoon(30000); if (manual) toast('It will sync when you leave this screen'); return false; }
+  sync.busy = true; sync.again = false;
+  try {
+    let sha = null, remote = { files: {} };
+    const r = await ghFetch('/contents/' + SYNC_FILE);
+    if (r.status === 200){
+      const j = await r.json(); sha = j.sha;
+      const text = j.content ? b64dec(j.content) : await (await ghFetch('/contents/' + SYNC_FILE, {raw: true})).text();   // (big files come without their content)
+      try { const d = JSON.parse(text); if (d && d.files && typeof d.files === 'object') remote = d; } catch (e) {}
+    } else if (r.status !== 404) throw new Error(ghWhy(r));
+    const L = phoneStore.files, mt = phoneStore.meta.t, mg = phoneStore.meta.gone, R = remote.files, out = {};
+    const cut = Date.now() - 90 * 864e5;
+    let localCh = false, remoteCh = sha === null;
+    for (const path of new Set([...Object.keys(L), ...Object.keys(mg), ...Object.keys(R)])){
+      if (path === 'active.json') continue;
+      const mine = L[path] != null ? {t: mt[path] || 1, text: L[path]} : mg[path] ? {t: mg[path], gone: true} : null;
+      const theirs = R[path] && typeof R[path] === 'object' ? R[path] : null;
+      let win = !mine ? theirs : !theirs ? mine : theirs.t >= mine.t ? theirs : mine;
+      if (path === 'skills.json' && mine && theirs && !mine.gone && !theirs.gone && mine.text !== theirs.text){     // skill by skill, the latest status wins
+        try { const a = JSON.parse(mine.text), b = JSON.parse(theirs.text), m = mergeSkills({status: a.status, t: a.t}, {status: b.status, t: b.t});
+          const text = JSON.stringify({app: APP, version: VERSION, updated: new Date().toISOString(), status: m.status, t: m.t}, null, 2);
+          const same = x => { try { const y = JSON.parse(x); return JSON.stringify(mergeSkills({status: y.status, t: y.t}, null)) === JSON.stringify(m); } catch (e) { return false; } };
+          win = same(theirs.text) ? theirs : same(mine.text) ? mine : {t: Date.now(), text}; } catch (e) {}
+      }
+      if (win.gone && win.t < cut){ delete mg[path]; if (theirs) remoteCh = true; continue; }       // old deletions are forgotten
+      out[path] = win.gone ? {t: win.t, gone: true} : {t: win.t, text: win.text};
+      if (!theirs || theirs.t !== win.t || !!theirs.gone !== !!win.gone || (!win.gone && theirs.text !== win.text)) remoteCh = true;
+      if (win.gone){ if (L[path] != null){ delete L[path]; localCh = true; } delete mt[path]; mg[path] = win.t; }
+      else { if (L[path] !== win.text){ L[path] = win.text; localCh = true; } mt[path] = win.t; delete mg[path]; }
+    }
+    await phoneStore.save();
+    if (remoteCh){
+      const body = JSON.stringify({ message: 'Repped sync', content: b64enc(JSON.stringify({app: APP, kind: 'sync', updated: new Date().toISOString(), files: out})), sha: sha || undefined });
+      const w = await ghFetch('/contents/' + SYNC_FILE, {method: 'PUT', body});
+      if ((w.status === 409 || w.status === 422) && (tries || 0) < 2){ sync.busy = false; return syncNow(manual, (tries || 0) + 1); }   // the other device got in first: go again
+      if (!w.ok) throw new Error(ghWhy(w));
+    }
+    if (localCh){ await loadAll(); render(); if (!manual) toast('Synced from your other device'); }
+    sync.last = Date.now(); sync.error = '';
+    try { localStorage.setItem('repped-synced', String(sync.last)); } catch (e) {}
+    if (manual) toast('Synced');
+    return true;
+  } catch (e) {
+    sync.error = /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? "Couldn't reach GitHub. It will try again." : e.message;
+    if (manual) toast(sync.error, true);
+    return false;
+  } finally {
+    sync.busy = false;
+    if (S.view === 'settings' && !/INPUT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) render();
+    if (sync.again) syncSoon(3000);
+  }
+}
+async function syncConnect(){
+  const repo = ($('#sy-repo').value || '').trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/, '').replace(/\/+$/, ''), token = ($('#sy-token').value || '').trim();
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)){ toast('Type the repository as yourname/repped-data', true); return; }
+  if (!token){ toast('Paste the token from GitHub', true); return; }
+  sync.cfg = {repo, token}; sync.error = '';
+  try { const r = await ghFetch(''); if (!r.ok){ const why = ghWhy(r); sync.cfg = null; toast(why, true); return; }
+    const j = await r.json(); if (j && j.private === false && !confirm('That repository is public, so anyone could read your workouts. Use it anyway?')){ sync.cfg = null; return; } }
+  catch (e) { sync.cfg = null; toast("Couldn't reach GitHub. Check you're online and try again.", true); return; }
+  await idb.set('sync', sync.cfg);
+  render();
+  await syncNow(true);
+}
+async function syncStop(){
+  if (!confirm('Stop syncing on this device? Your workouts stay here, and the copy on GitHub is left as it is.')) return;
+  sync.cfg = null; sync.error = ''; clearTimeout(sync.timer); await idb.set('sync', null); render();
+}
+function syncBox(){
+  if (!PHONE) return '';
+  const c = sync.cfg, when = sync.last ? new Date(sync.last).toLocaleString(undefined, {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : '';
+  if (c) return `<div class="pbox" style="max-width:560px"><h3>Syncing between devices</h3>
+    <p class="muted" style="margin-bottom:10px"><span class="dot ${sync.error ? 'off' : ''}" style="display:inline-block;margin-right:6px"></span>${esc(c.repo)}${sync.busy ? ': syncing…' : when ? ': last synced ' + esc(when) : ': not synced yet'}</p>
+    ${sync.error ? `<p style="color:#ff8a80;margin-bottom:10px">${esc(sync.error)}</p>` : ''}
+    <div class="row"><button class="btn" data-act="sy-now">Sync now</button><button class="btn ghost" data-act="sy-stop">Stop syncing</button></div>
+    <p class="dim" style="font-size:12.5px;margin-top:10px">It syncs by itself when you open Repped, after you save something, and every couple of minutes while it's open. The workout in progress stays on the device you started it on until you finish it.</p></div>`;
+  return `<div class="pbox" style="max-width:560px"><h3>Sync between devices</h3>
+    <p class="muted" style="margin-bottom:10px">Keeps your phone and computer the same, through a private GitHub repository of yours. Set it up once on each device with the same details:</p>
+    <ol class="muted" style="margin:0 0 12px;padding-left:20px;font-size:13.5px;line-height:1.6"><li>On GitHub, make a new <b>private</b> repository, e.g. <b>repped-data</b>, and tick "Add a README file".</li>
+      <li>Go to Settings (your account) &gt; Developer settings &gt; Personal access tokens &gt; Fine-grained tokens &gt; Generate new token.</li>
+      <li>Repository access: "Only select repositories" and pick that repository. Permissions: Contents, Read and write. Generate it and copy it.</li></ol>
+    <div class="field"><label for="sy-repo">Repository</label><input class="inp" id="sy-repo" placeholder="yourname/repped-data" autocapitalize="off" autocomplete="off" spellcheck="false"></div>
+    <div class="field"><label for="sy-token">Token</label><input class="inp" id="sy-token" type="password" placeholder="github_pat_…" autocomplete="off"></div>
+    <button class="btn red" data-act="sy-connect">Connect and sync</button>
+    <p class="dim" style="font-size:12.5px;margin-top:10px">The token is kept only on this device and is only ever sent to GitHub.</p></div>`;
+}
+async function syncStart(){
+  if (!PHONE) return;
+  try { const c = await idb.get('sync'); if (c && c.repo && c.token) sync.cfg = c; sync.last = +(localStorage.getItem('repped-synced') || 0); } catch (e) {}
+  if (!sync.cfg) return;
+  syncNow();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncSoon(800); });
+  window.addEventListener('online', () => syncSoon(1500));
+  setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 120000);
 }
 async function subdir(name, create = true){ return S.dir.getDirectoryHandle(name, {create}); }
 async function fileParent(path, create){
@@ -1007,7 +1128,7 @@ function render(){
 
 /* ---------- connect ---------- */
 function connectView(){
-  if (PHONE) return `<div class="connect"><h1>Repped</h1><p class="lead">Your workouts are kept on this phone.</p>
+  if (PHONE) return `<div class="connect"><h1>Repped</h1><p class="lead">Your workouts are kept on this device.</p>
     <button class="btn red big" data-act="phone-start" style="width:100%">Start</button>
     ${S._connectError ? `<p style="color:#ff8a80">${esc(S._connectError)}</p>` : ''}</div>`;
   const supported = 'showDirectoryPicker' in window;
@@ -1642,7 +1763,7 @@ function buildSkillsWorkout(){
 /* ---------- settings ---------- */
 function settingsView(){
   return `<div class="page"><div class="toprow"><div><h1>Settings</h1></div></div>
-    ${PHONE ? `<div class="pbox" style="max-width:560px"><h3>Kept on this phone</h3><p class="dim" style="font-size:12px;float:right">Version ${BUILD}</p><p class="muted">${S.templates.length} templates, ${S.history.length} workouts. Open Repped from its home screen icon so iOS keeps them safe, and export a backup now and then.</p></div>`
+    ${PHONE ? `<div class="pbox" style="max-width:560px"><h3>Kept on this device</h3><p class="dim" style="font-size:12px;float:right">Version ${BUILD}</p><p class="muted">${S.templates.length} templates, ${S.history.length} workouts. ${TOUCH ? 'Open Repped from its home screen icon so iOS keeps them safe. ' : ''}Turn on syncing below so your phone and computer share the same workouts.</p></div>${syncBox()}`
     : `<div class="pbox" style="max-width:560px"><h3>Workouts folder</h3><p class="muted" style="margin-bottom:12px"><span class="dot ${S.connected ? '' : 'off'}" style="display:inline-block;margin-right:6px"></span>${esc(S.dirName)}: ${S.templates.length} templates, ${S.history.length} workouts</p>
       <div class="row"><button class="btn" data-act="pick">Choose a different folder</button>${S.connected ? '' : '<button class="btn red" data-act="reconnect">Reconnect</button>'}</div>
       <p class="dim" style="font-size:12.5px;margin-top:10px">Chrome or Edge can't remember folder access between visits, so you may be asked to allow it each time you open Repped.</p></div>`}
@@ -1804,9 +1925,12 @@ document.addEventListener('click', async ev => {
   switch (act){
     case 'nav': go(b.dataset.v); break;
     case 'pick': pickFolder(); break;
-    case 'phone-start': (async () => { try { await connectHandle(await phoneRoot()); S._connectError = ''; S.view = 'workout'; render(); } catch (e) { S._connectError = 'Could not open the storage on this phone: ' + e.message; render(); } })(); break;
+    case 'phone-start': (async () => { try { await connectHandle(await phoneRoot()); S._connectError = ''; S.view = 'workout'; render(); } catch (e) { S._connectError = 'Could not open the storage on this device: ' + e.message; render(); } })(); break;
     case 'bk-export': exportBackup(); break;
     case 'bk-import': $('#bk-file').click(); break;
+    case 'sy-connect': syncConnect().then(() => { if (sync.cfg && !sync._started){ sync._started = true; document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncSoon(800); }); window.addEventListener('online', () => syncSoon(1500)); setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 120000); } }); break;
+    case 'sy-now': syncNow(true); break;
+    case 'sy-stop': syncStop(); break;
     case 'reconnect': reconnect(); break;
     case 'resume': S.ed = {mode: 'active', doc: S.active}; go('editor'); break;
     case 'start-empty': startWorkout(null); break;
@@ -1867,7 +1991,7 @@ document.addEventListener('change', ev => { if (ev.target.id === 'bk-file'){ con
 window.addEventListener('beforeunload', ev => { if (S.active){ try { localStorage.setItem('repped-active-backup', JSON.stringify({dir: S.dirName, session: S.active})); } catch (e) {} } });
 
 /* ---------------- start up ---------------- */
-const BUILD = '2026-11-16.0855';
+const BUILD = '2026-11-16.1624';
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
   // when you're online, look for a newer copy; it's used the next time nothing is in progress
@@ -1893,6 +2017,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   if (S.active && S.connected){ S.view = 'editor'; S.ed = {mode: 'active', doc: S.active}; }
   render();
   window.Repped.ready = true;
+  syncStart().then(() => { if (sync.cfg) sync._started = true; });
   const p = host && host.takeWorkout ? host.takeWorkout() : null;
   if (p){ S._pending = p; openPending(); }
 })();
