@@ -1,0 +1,2064 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Repped">
+<meta name="theme-color" content="#16191d">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Repped</title>
+<style>
+/* Plate colours do the semantic work: red = primary action, yellow = warm-up,
+   blue = drop set, green = done / PR. Everything else stays graphite and chalk. */
+:root{
+  --bg:#1c2025; --rail:#16191d; --panel:#242930; --panel2:#2c323a; --line:#353c46;
+  --chalk:#ecebe6; --muted:#9aa1ab; --dim:#6b7380;
+  --red:#d9463b; --red2:#b8372e; --yellow:#e8b931; --blue:#3f7fd9; --green:#3bb273; --greenbg:rgba(59,178,115,.14);
+  --head:"Bahnschrift","DIN Alternate","DIN Condensed","Roboto Condensed","Arial Narrow",sans-serif;
+  --body:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--chalk);font:14px/1.45 var(--body)}
+body{overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+input,textarea,select{font:inherit;color:var(--chalk)}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--head);font-weight:600;letter-spacing:.01em;margin:0}
+h1{font-size:30px;line-height:1.1}
+h2{font-size:20px}
+h3{font-size:16px}
+p{margin:0}
+.muted{color:var(--muted)}
+.dim{color:var(--dim)}
+
+#app{display:grid;grid-template-columns:200px 1fr;height:100vh}
+#rail{background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:18px 12px}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 8px 20px}
+.brand b{font-family:var(--head);font-size:24px;font-weight:700;letter-spacing:.02em}
+.brand svg{flex:none}
+.navb{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 10px;border-radius:7px;color:var(--muted);font-size:14.5px}
+.navb:hover{background:var(--panel);color:var(--chalk)}
+.navb.on{background:var(--panel2);color:var(--chalk)}
+.navb svg{width:18px;height:18px;flex:none}
+.rail-foot{margin-top:auto;padding:10px 8px 0;border-top:1px solid var(--line);font-size:12.5px}
+.rail-foot .fold{display:flex;align-items:center;gap:7px;color:var(--muted);word-break:break-all}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:none}
+.dot.off{background:var(--red)}
+
+#main{overflow:auto;position:relative}
+.page{max-width:900px;margin:0 auto;padding:30px 32px 120px}
+.page.wide{max-width:1200px}
+.toprow{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px}
+.sub{color:var(--muted);margin-top:4px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 14px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);font-weight:600;font-size:13.5px;white-space:nowrap}
+.btn:hover{border-color:#4a5260}
+.btn.red{background:var(--red);border-color:var(--red);color:#fff}
+.btn.red:hover{background:var(--red2)}
+.btn.green{background:var(--green);border-color:var(--green);color:#0f2418}
+.btn.ghost{background:none;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--chalk);background:var(--panel)}
+.btn.danger{color:#ff8a80}
+.btn.big{padding:12px 20px;font-size:15px}
+.btn:disabled{opacity:.45;cursor:default}
+.ibtn{padding:5px 8px;border-radius:6px;color:var(--muted);font-size:13px}
+.ibtn:hover{background:var(--panel2);color:var(--chalk)}
+
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.field label{font-size:12.5px;color:var(--muted)}
+.inp{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 10px;width:100%}
+.inp:focus{border-color:var(--blue);outline:none}
+textarea.inp{resize:vertical;min-height:60px}
+.row{display:flex;gap:10px;align-items:center}
+.grow{flex:1}
+
+/* ---------- Workout home ---------- */
+.startbar{display:flex;gap:12px;align-items:center;margin-bottom:34px;padding:18px 20px;background:var(--panel);border-radius:12px;border-left:4px solid var(--red)}
+.startbar .grow p{color:var(--muted);font-size:13px}
+.sechead{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.tcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;text-align:left;display:flex;flex-direction:column;gap:6px;min-height:130px}
+.tcard:hover{border-color:#4d5664}
+.tcard h3{font-size:17px}
+.tcard ul{list-style:none;margin:0;padding:0;color:var(--muted);font-size:13px;line-height:1.55}
+.tcard .last{margin-top:auto;font-size:12px;color:var(--dim)}
+.empty{border:1px dashed var(--line);border-radius:10px;padding:28px;text-align:center;color:var(--muted)}
+.empty .btn{margin-top:12px}
+
+/* ---------- Editor ---------- */
+.edhead{position:sticky;top:0;z-index:5;background:var(--bg);padding:16px 0 12px;margin-bottom:8px;border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:center}
+.wname{font-family:var(--head);font-size:26px;font-weight:600;background:none;border:0;border-bottom:1px dashed transparent;padding:2px 0;min-width:0;flex:1}
+.wname:hover,.wname:focus{border-bottom-color:var(--line);outline:none}
+.clock{font-family:var(--head);font-size:22px;color:var(--muted)}
+.clock.paused{color:var(--yellow);animation:blinkp 1.6s ease-in-out infinite}
+@keyframes blinkp{50%{opacity:.35}}
+.pausebtn.on{color:var(--yellow);border-color:var(--yellow)}
+.plist .qsk{display:flex;align-items:center;gap:10px;width:100%}
+.plist .qsk .n{flex:1;min-width:0}
+.plist .qbr{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:10px 8px 2px}
+.pastrow{display:flex;gap:12px;margin:10px 0 4px;flex-wrap:wrap}
+.pastrow .field{margin:0}
+.wnotes{margin:10px 0 6px}
+.exb{background:var(--panel);border-radius:12px;padding:12px 14px 10px;margin-top:14px}
+.exh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.exn{font-family:var(--head);font-size:18px;font-weight:600;color:#8db7ff;cursor:pointer;flex:1}
+.exn:hover{text-decoration:underline}
+.exn small{font-family:var(--body);font-size:12px;color:var(--dim);font-weight:400;margin-left:6px}
+.exnote{margin:2px 0 8px;font-size:13px;min-height:36px}
+table.sets{width:100%;border-collapse:separate;border-spacing:0 3px}
+table.sets th{font-size:11.5px;color:var(--dim);font-weight:600;text-align:center;padding:2px 4px}
+table.sets th.l,table.sets td.l{text-align:left}
+table.sets td{padding:3px 4px;text-align:center}
+table.sets tr td:first-child{border-radius:7px 0 0 7px}
+table.sets tr td:last-child{border-radius:0 7px 7px 0}
+table.sets tr.done td{background:var(--greenbg)}
+.kind{width:30px;height:28px;border-radius:6px;background:var(--panel2);font-weight:700;font-family:var(--head);font-size:15px}
+.kind.w{color:#1d1600;background:var(--yellow)}
+.kind.d{color:#fff;background:var(--blue)}
+.kind.f{color:#fff;background:var(--red)}
+.prev{color:var(--dim);font-size:13px;cursor:pointer;white-space:nowrap}
+.prev:hover{color:var(--muted)}
+.sin{width:100%;max-width:96px;text-align:center;background:var(--panel2);border:1px solid transparent;border-radius:6px;padding:5px 4px;font-variant-numeric:tabular-nums;font-weight:600}
+.sin:focus{border-color:var(--blue);outline:none}
+.sin::placeholder{color:var(--dim);font-weight:400}
+tr.done .sin{background:transparent}
+.chk{width:34px;height:28px;border-radius:6px;background:var(--panel2);color:var(--dim);font-weight:700}
+.chk:hover{color:var(--chalk)}
+tr.done .chk{background:var(--green);color:#0f2418}
+.sdel{color:var(--dim);opacity:0;padding:4px 6px}
+tr:hover .sdel,.sdel:focus{opacity:1}
+.sdel:hover{color:#ff8a80}
+.addset{width:100%;margin-top:4px;padding:6px;border-radius:7px;background:var(--panel2);color:var(--muted);font-size:13px;font-weight:600}
+.addset:hover{color:var(--chalk)}
+.edfoot{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.edfoot .btn{width:100%}
+
+/* rest timer */
+#restbar{position:fixed;left:200px;right:0;bottom:0;z-index:20;background:var(--rail);border-top:1px solid var(--line);display:none}
+#restbar.on{display:block}
+#restbar .in{max-width:900px;margin:0 auto;padding:10px 32px;display:flex;align-items:center;gap:12px}
+#restbar .t{font-family:var(--head);font-size:24px;min-width:70px}
+#restbar .track{flex:1;height:6px;border-radius:3px;background:var(--panel2);overflow:hidden}
+#restbar .fill{height:100%;background:var(--blue);width:0}
+#resume{position:fixed;left:200px;right:0;bottom:0;z-index:19;display:none}
+#resume.on{display:block}
+#resume .in{max-width:900px;margin:0 auto 14px;padding:0 32px}
+#resume button{width:100%;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-radius:10px;background:var(--red);color:#fff;font-weight:600}
+
+/* ---------- History ---------- */
+.month{font-family:var(--head);font-size:15px;color:var(--muted);margin:26px 0 10px}
+.hcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;cursor:pointer;width:100%;text-align:left;display:block}
+.hcard:hover{border-color:#4d5664}
+.hcard .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.hcard .meta{display:flex;gap:16px;color:var(--muted);font-size:12.5px;margin:4px 0 8px}
+.hcard table{width:100%;font-size:13px;border-collapse:collapse}
+.hcard td{padding:1px 0;color:var(--muted)}
+.hcard td:first-child{color:var(--chalk)}
+.hcard td:last-child{text-align:right}
+.pr{color:var(--yellow);font-weight:700;font-size:12px}
+
+/* ---------- Exercises ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 16px}
+.chip{padding:5px 11px;border-radius:20px;background:var(--panel);border:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+.chip.on{background:var(--chalk);color:var(--bg);border-color:var(--chalk);font-weight:600}
+.exrow{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;width:100%;text-align:left}
+.exrow:hover{background:var(--panel)}
+.exrow .n{flex:1}
+.exrow .n small{display:block;color:var(--dim);font-size:12px}
+.cat{font-family:var(--head);font-size:15px;color:var(--muted);margin:18px 0 4px;padding-left:12px}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:18px 0}
+.stat{background:var(--panel);border-radius:10px;padding:12px 14px}
+.stat b{display:block;font-family:var(--head);font-size:22px;font-weight:600}
+.stat span{color:var(--muted);font-size:12.5px}
+.chart{background:var(--panel);border-radius:10px;padding:14px;margin-bottom:18px}
+.chart svg{width:100%;height:180px;display:block}
+
+/* ---------- Print planner ---------- */
+.pgrid{display:grid;grid-template-columns:330px 1fr;gap:26px;align-items:start}
+.pside{position:sticky;top:20px}
+.pbox{background:var(--panel);border-radius:12px;padding:16px;margin-bottom:14px}
+.pbox h3{margin-bottom:10px}
+.addlist{display:flex;flex-wrap:wrap;gap:6px}
+.series{list-style:none;margin:0;padding:0}
+.series li{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;background:var(--panel2);margin-bottom:5px;font-size:13.5px}
+.series li .n{flex:1}
+.series li .k{font-family:var(--head);color:var(--dim);width:18px}
+.chkline{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:13.5px}
+.chkline input[type=number]{width:56px}
+.paperwrap{background:#0f1114;border-radius:12px;padding:22px;overflow:auto}
+.paper{background:#fff;color:#111;width:210mm;min-height:297mm;margin:0 auto 18px;padding:10mm;box-shadow:0 4px 18px rgba(0,0,0,.35)}
+
+/* ---------- Modal + toast ---------- */
+#modal{position:fixed;inset:0;background:rgba(5,7,10,.62);display:none;align-items:flex-start;justify-content:center;z-index:50;padding:8vh 16px;overflow:auto}
+#modal.on{display:flex}
+.mbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:100%;max-width:520px;padding:20px 22px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.mbox.wide{max-width:680px}
+.mbox h2{margin-bottom:10px}
+.mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.plist{max-height:46vh;overflow:auto;margin:10px -6px 0}
+.plist label{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px;cursor:pointer}
+.plist label:hover{background:var(--panel2)}
+.plist label small{color:var(--dim);margin-left:auto;font-size:12px}
+.plist label.sel{background:var(--panel2)}
+#toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--chalk);color:var(--bg);padding:9px 16px;border-radius:8px;font-weight:600;z-index:60;display:none;max-width:80vw}
+#toast.on{display:block}
+#toast.err{background:var(--red);color:#fff}
+
+/* ---------- Connect screen ---------- */
+.connect{max-width:560px;margin:12vh auto;padding:0 24px}
+.connect h1{font-size:44px;margin-bottom:8px}
+.connect .lead{color:var(--muted);font-size:15px;margin-bottom:26px}
+.connect .tree{background:var(--panel);border-radius:10px;padding:14px 18px;font-size:13px;color:var(--muted);margin:20px 0;line-height:1.7}
+.connect .tree b{color:var(--chalk);font-weight:600}
+
+/* ---------- Printable sheet (shared by preview + print) ---------- */
+.sheet{font-family:var(--head);color:#111}
+.sheet .stitle{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #111;padding-bottom:2mm;margin-bottom:4mm}
+.sheet .stitle b{font-size:15pt}
+.sheet .stitle span{font-family:var(--body);font-size:8pt;color:#555}
+.ps{break-inside:avoid;page-break-inside:avoid;border:1px solid #999;border-radius:2mm;padding:2.5mm 3mm 2mm;margin-bottom:3.5mm}
+.ps header{display:flex;align-items:baseline;gap:4mm;margin-bottom:1.5mm}
+.ps header b{font-size:12pt;flex:1}
+.ps header .no{font-size:9pt;color:#666}
+.ps header .ln{font-family:var(--body);font-size:7.5pt;color:#555;display:flex;align-items:flex-end;gap:1mm}
+.ps header .ln i{display:inline-block;border-bottom:1px solid #888;width:20mm;height:3.4mm}
+.ps header .ln i.s{width:11mm}
+.ps table{width:100%;border-collapse:separate;border-spacing:1mm .9mm;table-layout:fixed;margin:0 -1mm}
+.ps td.ex{width:30%;vertical-align:middle;padding-right:1mm}
+.ps td.ex b{display:block;font-size:9pt;font-weight:600;line-height:1.15}
+.ps td.ex small{display:block;font-family:var(--body);font-size:6.2pt;color:#666;line-height:1.2;margin-top:.3mm}
+.ps td.c{border:1px solid #aaa;border-radius:1.2mm;height:7.4mm;position:relative;font-family:var(--body);font-size:6.5pt;color:#b5b5b5;text-align:center;vertical-align:middle}
+.ps td.c em{position:absolute;left:.8mm;top:.2mm;font-style:normal;font-size:5.5pt;color:#888;font-family:var(--head)}
+.ps td.c.w{background:#fbf3d9}
+.ps td.c.x{border-style:dashed;border-color:#ccc}
+.ps td.blank b{display:block;border-bottom:1px solid #bbb;height:4.5mm;margin-right:2mm}
+.ps .nl{font-family:var(--body);font-size:7pt;color:#666;margin-top:1mm;display:flex;gap:1mm;align-items:flex-end}
+.ps .nl i{flex:1;border-bottom:1px solid #bbb;height:3.4mm}
+.sheet .key{font-family:var(--body);font-size:6.8pt;color:#777;margin-top:2mm}
+/* ---------- Skill tree ---------- */
+.g{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:20px;padding:0 6px;border-radius:5px;font-family:var(--head);font-weight:700;font-size:12.5px;letter-spacing:.02em;flex:none}
+.g-F{background:#59616d;color:#fff}.g-D{background:#3bb273;color:#0f2418}.g-C{background:#3f7fd9;color:#fff}.g-B{background:#8d63d9;color:#fff}
+.g-A{background:#e8b931;color:#1d1600}.g-S{background:#d9463b;color:#fff}.g-SS{background:linear-gradient(135deg,#ff5fa2,#ffb347);color:#1d0a00}.g-Scalable{background:#2bb3b3;color:#062222}
+.skhead{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:0 0 14px}
+.skwrap{overflow:auto;background:var(--panel);border-radius:12px;padding:10px 0 20px;margin-top:4px}
+.sktree{position:relative;margin:0 auto}
+.sktree svg{position:absolute;inset:0;pointer-events:none}
+.skrow{position:absolute;left:0;right:0;border-top:1px dashed #2f353e}
+.skrow .g{position:absolute;left:14px;top:18px}
+.sk{position:absolute;width:160px;height:62px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px;text-align:left;display:flex;flex-direction:column;gap:2px;transition:border-color .15s}
+.sk:hover{border-color:#5a6372}
+.sk .t{display:flex;align-items:center;gap:6px}
+.sk b{font-size:13px;font-weight:600;line-height:1.2;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.sk small{color:var(--dim);font-size:11.5px}
+.sk .pips{display:flex;gap:3px;margin-top:auto}
+.sk .pips i{flex:1;height:4px;border-radius:2px;background:#3a414c}
+.sk.st1 .pips i:nth-child(-n+1),.sk.st2 .pips i:nth-child(-n+2){background:var(--yellow)}
+.sk.st3 .pips i{background:var(--green)}
+.sk.st3{border-color:rgba(59,178,115,.6);background:#22302a}
+.sk.st1,.sk.st2{border-color:rgba(232,185,49,.55)}
+.sk.next{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue) inset}
+.sk.far>*{opacity:.5}
+.sk.ghost{border-style:dashed;background:var(--panel)}
+.sklegend{display:flex;flex-wrap:wrap;gap:14px;color:var(--muted);font-size:12.5px;margin:10px 2px 0}
+.sklegend span{display:inline-flex;align-items:center;gap:6px}
+.sklegend i{width:14px;height:10px;border-radius:3px;border:1px solid var(--line);display:inline-block}
+.skgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:8px}
+.skcard{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 11px;text-align:left;display:flex;align-items:center;gap:9px}
+.skcard:hover{border-color:#4d5664}
+.skcard .n{flex:1;min-width:0}
+.skcard .n small{display:block;color:var(--dim);font-size:11.5px}
+.skst{font-size:11.5px;font-weight:600;color:var(--dim);white-space:nowrap}
+.skst.l1,.skst.l2{color:var(--yellow)}.skst.l3{color:var(--green)}
+.skm dl{display:grid;grid-template-columns:120px 1fr;gap:5px 10px;margin:12px 0;font-size:13.5px}
+.skm dt{color:var(--muted)}
+.skm dd{margin:0}
+.skm .opts{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.skm .lk{color:#8db7ff;cursor:pointer}
+.skm .lk:hover{text-decoration:underline}
+.exrow .g{margin-left:2px}
+#printRoot{display:none}
+
+@media (max-width:760px){
+  #app{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;height:100vh;height:100dvh}
+  #main{order:1;padding-top:env(safe-area-inset-top)}
+  #rail{order:2;flex-direction:row;padding:4px 4px calc(4px + env(safe-area-inset-bottom));border-right:0;border-top:1px solid var(--line)}
+  #rail .brand,#rail .rail-foot{display:none}
+  #nav{display:flex;width:100%}
+  .navb{flex:1;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;font-size:10.5px;text-align:center;width:auto;min-width:0}
+  .navb svg{width:21px;height:21px}
+  #restbar,#resume{left:0;bottom:calc(60px + env(safe-area-inset-bottom))}
+  #restbar .in,#resume .in{padding-left:14px;padding-right:14px}
+  .page{padding:18px 14px 140px}
+  .toprow{flex-wrap:wrap;align-items:flex-start}
+  .pgrid{grid-template-columns:1fr}
+  .tgrid{grid-template-columns:1fr}
+  .skm dl{grid-template-columns:100px 1fr}
+  #modal{padding:4vh 10px}
+  .mbox{padding:16px}
+  input,select,textarea{font-size:16px}   /* (smaller text makes iPhone zoom in on tap) */
+  .exh{flex-wrap:wrap;gap:2px 4px}
+  .exh .exn{flex:1 0 100%;margin-bottom:2px}
+  .exh .ibtn{padding:4px 7px;font-size:13px}
+  .exb{padding:10px 10px 8px}
+  table.sets{width:100%}
+  #toast{bottom:calc(130px + env(safe-area-inset-bottom))}
+  /* touch: no double-tap zoom, no grey flash, no text selection on buttons, no page bounce */
+  html,body{overscroll-behavior:none;-webkit-text-size-adjust:100%}
+  *{-webkit-tap-highlight-color:transparent}
+  button,.navb,.chip,.tcard,.hcard,[role=button]{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+  #main{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  /* bigger things to tap */
+  .btn{padding:10px 14px;font-size:14.5px}
+  .chip{padding:8px 13px;font-size:13.5px}
+  .chk{width:44px;height:36px}
+  .sin{padding:8px 4px;max-width:none}
+  .sdel{opacity:1;padding:8px 6px}          /* (there's no hover on a phone) */
+  .exh .ibtn{padding:7px 9px;font-size:13.5px}
+  table.sets td{padding:3px 2px}
+  /* headers: the name gets its own line, the buttons sit under it */
+  .edhead{flex-wrap:wrap;gap:8px 10px;padding:10px 0}
+  .edhead .wname{flex:1 0 100%;font-size:24px}
+  .edhead .clock{margin-right:auto}
+  .edhead .btn{flex:0 0 auto}
+  .edhead .btn.ghost{margin-left:auto}
+  .startbar{flex-direction:column;align-items:stretch;gap:10px;padding:14px 16px;margin-bottom:24px}
+  .startbar .btn{width:100%}
+  .startbar .g{align-self:flex-start}
+  .pastrow{flex-wrap:wrap}
+  h1{font-size:26px}
+  /* pop-ups slide up from the bottom, scroll inside, and keep their buttons in view */
+  #modal{padding:0;align-items:flex-end;overflow:hidden}
+  .mbox,.mbox.wide{max-width:none;max-height:calc(100dvh - env(safe-area-inset-top) - 14px);overflow:auto;border-radius:18px 18px 0 0;border-width:1px 0 0;padding:18px 16px 0;overscroll-behavior:contain}
+  .mfoot{position:sticky;bottom:0;background:var(--panel);margin:14px -16px 0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);flex-wrap:wrap}
+  .mfoot .btn{flex:1 1 auto}
+  .skgrid{grid-template-columns:1fr}
+  .skhead{grid-template-columns:1fr 1fr}
+  .stats{grid-template-columns:1fr 1fr}
+  .hcard .meta{flex-wrap:wrap;gap:4px 14px}
+  .navb[data-v="print"]{display:none}       /* printing sheets is a computer job */
+}
+@media print{
+  @page{size:A4;margin:10mm}
+  html,body{background:#fff;height:auto;overflow:visible}
+  #app,#modal,#toast,#restbar,#resume{display:none!important}
+  #printRoot{display:block}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="rail">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="8" width="5" height="12" rx="1.5" fill="#d9463b"/><rect x="6" y="5" width="4" height="18" rx="1.5" fill="#3f7fd9"/><rect x="10" y="12.5" width="8" height="3" fill="#9aa1ab"/><rect x="18" y="5" width="4" height="18" rx="1.5" fill="#3f7fd9"/><rect x="22" y="8" width="5" height="12" rx="1.5" fill="#d9463b"/></svg>
+      <b>Repped</b>
+    </div>
+    <nav id="nav"></nav>
+    <div class="rail-foot" id="railfoot"></div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div id="resume"><div class="in"><button data-act="resume"><span>Workout in progress: <b id="resumeName"></b></span><span class="num" id="resumeClock"></span></button></div></div>
+<div id="restbar"><div class="in">
+  <span class="muted">Rest</span><span class="t num" id="restT">0:00</span>
+  <div class="track"><div class="fill" id="restFill"></div></div>
+  <button class="btn" data-act="rest-minus">-15s</button><button class="btn" data-act="rest-plus">+15s</button><button class="btn" data-act="rest-skip">Skip</button>
+</div></div>
+<div id="modal"></div>
+<div id="toast"></div>
+<div id="printRoot"></div>
+
+<script>
+'use strict';
+/* ================================================================
+   Repped: a Strong-style workout logger that keeps everything as
+   plain JSON files in a folder you choose (a USB stick works).
+     <folder>/templates/*.json   one file per workout template
+     <folder>/history/*.json     one file per finished workout
+     <folder>/exercises.json     your custom exercises
+     <folder>/settings.json      app settings
+     <folder>/active.json        the workout in progress (if any)
+   ================================================================ */
+
+const APP = 'Repped', VERSION = 1;
+// Revision Master (when Repped runs inside it): Red Timers can open a workout from a routine
+const host = (() => { try { return window.parent !== window && window.parent.RevisionMaster || null; } catch (e) { return null; } })();
+
+/* ---------------- utilities ---------------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const clone = o => JSON.parse(JSON.stringify(o));
+const pad2 = n => String(n).padStart(2, '0');
+function fmtDur(s){
+  if (s == null || isNaN(s)) return '';
+  s = Math.max(0, Math.round(s));
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60;
+  return h ? `${h}:${pad2(m)}:${pad2(ss)}` : `${m}:${pad2(ss)}`;
+}
+// "1:30" -> 90, "1:02:00" -> 3720. A plain number is seconds, or minutes when plainIsMinutes.
+function parseDur(v, plainIsMinutes){
+  v = String(v).trim(); if (!v) return null;
+  if (v.includes(':')){
+    const p = v.split(':').map(x => parseFloat(x) || 0);
+    return Math.round(p.reduce((a, x) => a * 60 + x, 0));
+  }
+  const n = parseFloat(v); if (isNaN(n)) return null;
+  return Math.round(plainIsMinutes ? n * 60 : n);
+}
+const fmtNum = n => n == null ? '' : String(Math.round(n * 100) / 100);
+const fmtKg = n => fmtNum(n);
+function fmtDateLong(iso){ return new Date(iso).toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'}); }
+function fmtDateShort(iso){ return new Date(iso).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}); }
+function fmtTime(iso){ return new Date(iso).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}); }
+function ago(iso){
+  const d = Math.floor((Date.now() - new Date(iso)) / 864e5);
+  if (d <= 0) return 'today'; if (d === 1) return 'yesterday'; if (d < 7) return `${d} days ago`;
+  if (d < 14) return '1 week ago'; if (d < 60) return `${Math.floor(d / 7)} weeks ago`;
+  return fmtDateShort(iso);
+}
+const safeName = s => (String(s).replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Workout');
+function toast(msg, err){
+  const t = $('#toast'); t.textContent = msg; t.className = 'on' + (err ? ' err' : '');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.className = '', err ? 4200 : 2200);
+}
+
+/* ---------------- exercise library ---------------- */
+const TYPES = {
+  wr:     {label:'Weight and reps', cols:[['w','kg'], ['r','Reps']]},
+  bw:     {label:'Bodyweight (added kg optional)', cols:[['w','+kg'], ['r','Reps']]},
+  reps:   {label:'Reps only', cols:[['r','Reps']]},
+  time:   {label:'Time or hold', cols:[['t','Time']]},
+  cardio: {label:'Distance and time', cols:[['d','km'], ['t','Time']]},
+};
+const CATS = ['Skills','Chest','Back','Shoulders','Arms','Legs','Core','Neck','Cardio','Mobility','Other'];
+const B = (cat, type, names) => names.map(n => ({id: 'b:' + n.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name: n, cat, type, builtin: true}));
+const BUILTIN = [
+  ...B('Chest','wr',['Bench Press (Barbell)','Bench Press (Dumbbell)','Incline Bench Press (Barbell)','Incline Bench Press (Dumbbell)','Chest Press (Machine)','Cable Fly']),
+  ...B('Chest','reps',['Push Up','Archer Push Up']), ...B('Chest','bw',['Dip']), ...B('Arms','bw',['Ring Dip']),
+  ...B('Back','wr',['Deadlift (Barbell)','Romanian Deadlift (Barbell)','Romanian Deadlift (Dumbbell)','Bent Over Row (Barbell)','Dumbbell Row','Seated Cable Row','Lat Pulldown (Cable)','Face Pull','Shrug (Dumbbell)']),
+  ...B('Back','bw',['Pull Up','Wide Pull Up','Chin Up']), ...B('Back','reps',['Inverted Row','Scapular Pull Up']), ...B('Back','time',['Dead Hang']),
+  ...B('Shoulders','wr',['Overhead Press (Barbell)','Shoulder Press (Dumbbell)','Lateral Raise (Dumbbell)','Rear Delt Fly']),
+  ...B('Shoulders','reps',['Pike Push Up','Wall Handstand Push Up']), ...B('Shoulders','time',['Wall Handstand Hold']),
+  ...B('Arms','wr',['Bicep Curl (Dumbbell)','Bicep Curl (Barbell)','Hammer Curl','Triceps Pushdown (Cable)','Overhead Triceps Extension','Skullcrusher (Barbell)']),
+  ...B('Arms','reps',['Diamond Push Up']),
+  ...B('Legs','wr',['Squat (Barbell)','Front Squat (Barbell)','Goblet Squat','Leg Press','Bulgarian Split Squat','Lunge (Dumbbell)','Leg Extension','Leg Curl','Hip Thrust','Calf Raise']),
+  ...B('Legs','bw',['Pistol Squat','Shrimp Squat','Single Leg Calf Raise']), ...B('Legs','reps',['Nordic Hamstring Curl','Nordic Leg Extension','Jump Squat','Box Jump','Bodyweight Squat']),
+  ...B('Legs','reps',['Glute Bridge','Lunge','Walking Lunge','Reverse Lunge','Lateral Lunge','Curtsy Lunge','Jumping Lunge','Step Up','Single Leg Romanian Deadlift','Hamstring Walkout','Calf Raise (Bodyweight)','Tuck Jump','Broad Jump','Skater Jump','Frog Jump']),
+  ...B('Legs','time',['Wall Sit','Single Leg Wall Sit']),
+  ...B('Legs','wr',['Sumo Deadlift','Hack Squat','Step Up (Dumbbell)','Single Leg Romanian Deadlift (Dumbbell)','Seated Calf Raise','Good Morning (Barbell)','Hip Adduction (Machine)','Hip Abduction (Machine)','Walking Lunge (Dumbbell)']),
+  ...B('Core','time',['Plank','Side Plank','Hollow Body Hold','L-Sit']),
+  ...B('Core','reps',['Hollow Body Crunch','Hanging Leg Raise','Flat Leg Raise','Ab Wheel Rollout','Dragon Flag']), ...B('Core','wr',['Cable Crunch']), ...B('Core','bw',['Russian Twist']),
+  ...B('Skills','bw',['Muscle Up']), ...B('Skills','time',['Tuck Front Lever','Front Lever','Tuck Planche','Back Lever','Crow Pose','Handstand (Freestanding)']),
+  ...B('Skills','reps',['Skin the Cat','Pseudo Planche Push Up','Front Lever Raise']),
+  ...B('Neck','wr',['Lateral Neck Curl','Front Neck Curl','Neck Extension']),
+  ...B('Cardio','cardio',['Running','Cycling','Rowing (Machine)','Walking','Swimming']), ...B('Cardio','time',['Skipping','Boxing (Bag Work)']),
+  ...B('Mobility','reps',['Leg Swings','Side Leg Swings','Arm Swings','Shoulder Dislocations','90/90 Hip Switch','Cat Cow']),
+  ...B('Mobility','time',['Straddle Fold with Side Bends','Forward Fold','Horse Stance','Wide Split Hold','Front Split Hold','Pike Push Up Hold','Deep Squat Hold']),
+];
+/* ---------------- calisthenics skill tree ----------------
+   Grades and branches follow the Wings skill tree ranking (F, D, C, B, A, S, SS, plus Scalable).
+   Status levels: 1 Unlocked (2 s hold or 1 rep), 2 In progress (6 s or 3 reps), 3 Mastered (12 s+ or 6+ reps).
+   Each skill is linked to an exercise, so logged sets move it up by themselves.
+   name | grade | time to learn | D dynamic or I isometric | muscles | how to do it | exercise (blank = same name) */
+const GRADES = ['F','D','C','B','A','S','SS','Scalable'];
+const GRADE_PTS = {F:1, D:2, C:4, B:8, A:16, S:32, SS:64, Scalable:8};
+const BRANCHES = [['hpush','Horizontal push'], ['vpush','Vertical push'], ['hpull','Horizontal pull'], ['vpull','Vertical pull'], ['core','Core'], ['legs','Legs']];
+const SKLEVELS = ['Not yet', 'Unlocked', 'In progress', 'Mastered'];
+const SKILL_DATA = {
+hpush: `Assisted Push-up|F|About 1 week|D|Chest, triceps, front delts|Hands on a bench or knees on the floor. Keep a straight line and lower your chest to the hands.|Assisted Push Up
+Push-up|F|1-2 weeks|D|Chest, triceps, front delts, core|Chest to the floor, elbows about 45 degrees from the body, hips locked in line.|Push Up
+Dip|D|2-4 weeks|D|Chest, triceps, front delts|On parallel bars, lower until the shoulders pass below the elbows, then press to lockout.|Dip
+Elbow Lever|D|2-4 weeks|I|Core, wrists, triceps|Balance horizontally on your hands with the elbows driven into your hips.|Elbow Lever
+Planche Lean|C|3-5 weeks|I|Front delts, wrists, serratus, core|From a push-up position with straight arms, lean the shoulders forward past the hands and keep them pushed away from the floor.|Planche Lean
+Pseudo Push-up|C|1-2 months|D|Front delts, chest, triceps, wrists|Push-ups with the hands down by the hips, fingers turned out, shoulders leaning forward the whole time.|Pseudo Planche Push Up
+Tuck Planche|B|3-6 months|I|Front delts, triceps, serratus, core|Straight arms, knees tucked to the chest, hips lifted level with the shoulders.|
+Tuck Planche PU|B|4-7 months|D|Front delts, chest, triceps, core|Bend the arms and press back up from a tuck planche without the feet touching down.|Tuck Planche Push Up
+Adv. Tuck Planche|B|6-12 months|I|Front delts, triceps, serratus, core|Tuck planche with a flat back and the hips opened to about 90 degrees.|Advanced Tuck Planche
+Adv. Tuck Planche PU|B|9-15 months|D|Front delts, chest, triceps, core|Push-ups in the advanced tuck planche position.|Advanced Tuck Planche Push Up
+90 Degree Hold|B|12-15 months|I|Front delts, triceps, chest, core|Body horizontal with the elbows bent to 90 degrees and the hips and legs held up in line.|90 Degree Hold
+Back Lever|A|15-18 months|I|Lats, biceps, chest, lower back, core|Hang face down and horizontal behind the bar or rings with straight arms.|
+Super Adv. Tuck PL|A|1-2 years|I|Front delts, triceps, serratus, core|Advanced tuck with the knees pushed further back, opening the hips past 90 degrees.|Super Advanced Tuck Planche
+Straddle Planche|A|1-3 years|I|Front delts, triceps, serratus, core, glutes|Straight arms, legs straight and wide, whole body horizontal.|
+Straddle Planche PU|A|2-3 years|D|Front delts, chest, triceps, core|Push-ups while holding a straddle planche.|Straddle Planche Push Up
+Half Lay Planche|A|2-4 years|I|Front delts, triceps, serratus, core, glutes|Legs together with the knees bent, thighs in line with the body.|
+Full Planche|S|3-5 years|I|Front delts, triceps, serratus, core, glutes|Legs together and straight, the whole body horizontal on straight arms.|
+Full Planche PU|SS|3-5 years|D|Front delts, chest, triceps, core|Push-ups in a full planche.|Full Planche Push Up
+One Arm Planche|SS|4-6 years|I|Front delts, triceps, obliques, core|A planche balanced on one hand.|
+Maltese|SS|4-6 years|I|Front delts, chest, biceps, core|A planche with the hands very wide, so the body sits almost at hand height.|
+Archer Push-up|C|1-3 months|D|Chest, triceps, front delts|Lower to one hand while the other arm slides out straight to the side.|Archer Push Up
+Ring Support Hold|D|2-4 weeks|I|Triceps, chest, shoulders, core|On rings, hold yourself up on straight arms with the rings turned out by your hips.|Ring Support Hold
+Ring Dip|C|2-4 months|D|Chest, triceps, front delts|A dip on rings, keeping them close to the body and steady.|Ring Dip`,
+vpush: `Pike Push-up|C|2-3 months|D|Front delts, triceps, upper chest|Hips high in a pike, lower your head to a point in front of the hands so you make a triangle.|Pike Push Up
+Crow Pose|C|1-2 months|I|Wrists, front delts, core|Knees resting on the backs of the upper arms, lean forward until the feet float.|
+Assisted Handstand|C|1-2 months|I|Shoulders, triceps, core, wrists|Chest-to-wall handstand with the body stacked in one line.|Wall Handstand Hold
+Handstand|C|2-3 months|I|Shoulders, triceps, core, wrists|Freestanding. Balance with the fingers, push tall through the shoulders.|Handstand (Freestanding)
+Elevated Pike PU|B|3-9 months|D|Front delts, triceps, upper chest|Pike push-up with the feet on a box, so the torso is closer to vertical.|Elevated Pike Push Up
+Bent Arm Press to HS|B|4-12 months|D|Shoulders, triceps, core, hip flexors|From a crow or frog stand, press up into a handstand with bent arms.|Bent Arm Press to Handstand
+Straight Arm Press to HS|B|6-15 months|D|Shoulders, core, hip flexors|Press from a straddle or pike up to a handstand with the arms straight.|Straight Arm Press to Handstand
+Bent Arm Stand|B|6-15 months|I|Triceps, shoulders, core|Balance upside down on bent arms, the bottom of a handstand push-up.|
+Assisted HSPU|B|9-15 months|D|Shoulders, triceps, upper chest|Handstand push-up against a wall, head to the floor and back to lockout.|Wall Handstand Push Up
+HSPU|B|1-2 years|D|Shoulders, triceps, upper chest, core|Freestanding handstand push-up.|Handstand Push Up
+Deep HSPU|A|2-3 years|D|Shoulders, triceps, upper chest|Handstand push-up on parallettes so the head goes below the hands.|Deep Handstand Push Up
+90 Degree PU|A|2-3 years|D|Shoulders, triceps, chest, core|From a handstand, lower into a 90 degree hold and press back up.|90 Degree Push Up
+Assisted OAHS|A|1-3 years|I|Shoulders, wrists, obliques, core|One-arm handstand with a fingertip or the wall for help.|Assisted One Arm Handstand
+OAHS|A|2-3 years|I|Shoulders, wrists, obliques, core|A freestanding handstand on one arm.|One Arm Handstand
+OA Flag|A|2-3 years|I|Shoulders, obliques, core|From a one-arm handstand, lower the legs out to the side into a flag shape.|One Arm Flag
+Decline Push-up|D|2-4 weeks|D|Upper chest, front delts, triceps|Push-ups with the feet up on a bench, so more weight goes through the shoulders.|Decline Push Up
+Frog Stand|D|2-4 weeks|I|Wrists, front delts, core|Squat down, knees resting on the outside of the elbows, and lean forward until the feet lift.|Frog Stand
+Wall Walk|D|2-4 weeks|D|Shoulders, triceps, core|From a push-up position with the feet at a wall, walk the feet up and the hands in until your chest is near the wall, then walk back down.|Wall Walk
+Handstand Shoulder Taps|B|4-8 months|D|Shoulders, core, wrists|In a handstand (against a wall at first), lift one hand to tap the opposite shoulder, then swap.|Handstand Shoulder Taps
+Handstand Walk|B|4-8 months|D|Shoulders, wrists, core|Walk forwards on your hands in a freestanding handstand.|Handstand Walk
+Tiger Bend Push-up|A|1-2 years|D|Triceps, shoulders, core|From a handstand, lower onto the forearms and press back up to straight arms.|Tiger Bend Push Up`,
+hpull: `Assisted Inverted Row|F|1-2 weeks|D|Lats, mid back, biceps|Row to a bar with the body more upright or the knees bent.|Assisted Inverted Row
+Inverted Row|F|1-2 weeks|D|Lats, mid back, biceps, rear delts|Body straight under a bar, pull the chest to the bar.|
+Tuck FL|C|2-4 months|I|Lats, rear delts, triceps, mid back, core|Straight arms, knees tucked, back held horizontal under the bar.|Tuck Front Lever
+Tuck FL Row|C|2-4 months|D|Lats, mid back, biceps, core|Pull the bar towards the hips from a tuck front lever.|Tuck Front Lever Row
+Pike FL|C|4-6 months|I|Lats, rear delts, triceps, core|Legs straight and raised at the hips, back horizontal. One leg out works too.|Pike Front Lever
+Pike FL Row|C|4-6 months|D|Lats, mid back, biceps, core|Rows in the pike front lever position.|Pike Front Lever Row
+Adv. Tuck FL|B|5-8 months|I|Lats, rear delts, triceps, core|Flat back and the hips opened to about 90 degrees.|Advanced Tuck Front Lever
+Super Adv. Tuck FL|A|6-12 months|I|Lats, rear delts, triceps, core|Advanced tuck with the knees pushed further away, opening the hips past 90 degrees.|Super Advanced Tuck Front Lever
+Adv. Tuck FL Row|A|6-12 months|D|Lats, mid back, biceps, core|Rows in the advanced tuck front lever.|Advanced Tuck Front Lever Row
+Straddle FL|A|9-18 months|I|Lats, rear delts, triceps, core, glutes|Legs straight and wide, body horizontal.|Straddle Front Lever
+Straddle FL Row|A|12-18 months|D|Lats, mid back, biceps, core|Rows in a straddle front lever.|Straddle Front Lever Row
+Half Lay FL|A|12-18 months|I|Lats, rear delts, triceps, core|Legs together with the knees bent, thighs in line with the body.|Half Lay Front Lever
+Full Front Lever|A|1-2 years|I|Lats, rear delts, triceps, core, glutes|Whole body straight and horizontal under the bar.|Front Lever
+Full FL Row|A|1-2 years|D|Lats, mid back, biceps, core|Rows in a full front lever.|Front Lever Row
+Front Lever Touch|S|1-2 years|I|Lats, mid back, biceps, core|A full front lever with the bar pulled in to touch the body.|Front Lever Touch
+Skin the Cat|D|2-4 weeks|D|Lats, shoulders, biceps, core|Hanging from bar or rings, tuck and rotate backwards through your arms, then come back the same way.|Skin the Cat
+German Hang|D|1-2 months|I|Shoulders, chest, biceps|The bottom of a skin the cat: hang behind the bar or rings with the shoulders stretched.|German Hang
+Archer Inverted Row|C|1-3 months|D|Lats, mid back, biceps|An inverted row pulling to one hand while the other arm stays straight.|Archer Inverted Row
+One Arm Inverted Row|B|4-8 months|D|Lats, mid back, biceps, core|An inverted row with one hand, keeping the body from twisting.|One Arm Inverted Row
+Ice Cream Maker|B|4-8 months|D|Lats, rear delts, core|From the top of a pull-up, push the straight body out into a tuck or full front lever and pull back in.|Ice Cream Maker
+Front Lever Raise|A|9-18 months|D|Lats, core, rear delts|With straight arms, raise the straight body from a hang up into a front lever and lower it slowly.|Front Lever Raise`,
+vpull: `Deadhang|F|1-2 weeks|I|Forearms, lats, shoulders|Hang from the bar with straight arms and relaxed shoulders.|Dead Hang
+Active Hang|F|2-4 weeks|I|Lats, lower traps, forearms|Hang with straight arms and pull the shoulders down away from the ears.|Active Hang
+Assisted Pull-up|D|2-4 weeks|D|Lats, biceps, mid back|Pull-ups with a band or your feet taking some of the weight.|Assisted Pull Up
+Pull-up|D|3-5 weeks|D|Lats, biceps, mid back, forearms|From a dead hang, pull until the chin is over the bar.|Pull Up
+Scapula Pull-up|D|3-5 weeks|D|Lower traps, lats, serratus|Arms straight, lift the body using only the shoulder blades.|Scapular Pull Up
+Chest Pull-up|C|2-6 months|D|Lats, mid back, biceps|Pull high enough that the chest touches the bar.|Chest to Bar Pull Up
+Waist Pull-up|B|4-12 months|D|Lats, mid back, biceps, triceps|An explosive pull that brings the bar down to the waist.|Waist Pull Up
+Muscle-Up|B|6-18 months|D|Lats, chest, triceps, biceps, core|Pull, turn the wrists over the bar, and press out to a straight-arm support.|Muscle Up
+Archer Pull-up|B|12-18 months|D|Lats, biceps, mid back|Pull to one hand while the other arm slides out straight along the bar.|Archer Pull Up
+Clean Muscle-Up|A|1-2 years|D|Lats, chest, triceps, biceps, core|A strict muscle-up with no swing or kip.|Clean Muscle Up
+Assisted OAC|A|1-2 years|D|Lats, biceps, forearms|One-arm chin-up with the free hand holding the wrist, a towel or a band.|Assisted One Arm Chin Up
+Assisted OAP|A|1-2 years|D|Lats, biceps, forearms|One-arm pull-up (overhand) with a little help from the other hand.|Assisted One Arm Pull Up
+OAC/OAP|A|1-2 years|D|Lats, biceps, forearms, core|A full one-arm chin-up or pull-up.|One Arm Pull Up
+Weighted Pull-ups|Scalable|1-2 years|D|Lats, biceps, mid back|Pull-ups with added weight. Keep adding kilos: there is no top grade.|Weighted Pull Up
+Butterfly|SS|3-5 years|D|Lats, chest, triceps, core|An elite bar skill at the top of the vertical pull branch.|Butterfly
+Negative Pull-up|D|1-3 weeks|D|Lats, biceps, mid back|Jump to the top of a pull-up and lower yourself as slowly as you can.|Negative Pull Up
+Chin-up|D|3-5 weeks|D|Biceps, lats, mid back|A pull-up with the palms facing you.|Chin Up
+L-sit Pull-up|C|2-4 months|D|Lats, biceps, abs, hip flexors|Pull-ups while holding the legs straight out in an L-sit.|L-Sit Pull Up
+Typewriter Pull-up|B|9-15 months|D|Lats, biceps, mid back|Pull up to the bar, then slide side to side from one hand to the other at the top.|Typewriter Pull Up
+Ring Muscle-Up|A|1-2 years|D|Lats, chest, triceps, biceps, core|A muscle-up on rings, with a false grip to get over them.|Ring Muscle Up
+Assisted Iron Cross|A|1-2 years|I|Lats, chest, biceps, shoulders|An iron cross with bands or feet on a box taking some of the weight.|Assisted Iron Cross
+Iron Cross|S|2-4 years|I|Lats, chest, biceps, shoulders|On rings, hold the body straight up with the arms straight out to the sides, level with the shoulders.|Iron Cross`,
+core: `Sit-up|F|1-2 weeks|D|Abs, hip flexors|Curl up from lying with the knees bent.|Sit Up
+Hollow Body Hold|F|1-4 weeks|I|Abs, hip flexors|Lower back pressed down, arms and legs held just off the floor.|
+L-sit Compression|D|2-4 weeks|D|Hip flexors, abs, quads|Seated with hands by the hips, lift the straight legs off the floor.|L-Sit Compression Lift
+L-sit|D|1-2 months|I|Hip flexors, abs, triceps, shoulders|Support on straight arms with the legs straight out in front at hip height.|L-Sit
+Dragon Flag|C|1-5 months|I|Abs, lats, lower back|Holding a bench behind your head, keep the body straight and lift it from the shoulders.|
+V-sit|B|2-6 months|I|Hip flexors, abs, shoulders|An L-sit with the legs lifted higher, towards the face.|V-Sit
+I-sit|B|6-15 months|I|Hip flexors, abs, shoulders, triceps|The legs go all the way up, so the body is folded with the legs vertical.|I-Sit
+Manna|A|1-2 years|I|Hip flexors, rear delts, triceps, abs|Hands behind the hips, push the hips forward and up with the legs lifted in front.|Manna
+Human Flag|B|6-12 months|I|Obliques, lats, shoulders, core|Hold a vertical pole and keep the body straight and sideways like a flag.|Human Flag
+Victorian|S|1-3 years|I|Lats, chest, biceps, core|A horizontal hold facing up with the arms straight out in front, like a back lever reversed.|Victorian
+Plank|F|1-2 weeks|I|Abs, shoulders|On the forearms, body straight from head to heels.|
+Side Plank|F|1-2 weeks|I|Obliques, abs, shoulders|On one forearm, body straight and sideways, hips up.|
+Hanging Knee Raise|F|1-2 weeks|D|Abs, hip flexors, forearms|Hanging from the bar, bring the knees up to the chest without swinging.|Hanging Knee Raise
+Hanging Leg Raise|D|1-2 months|D|Abs, hip flexors|Hanging from the bar, raise straight legs to hip height or higher.|
+Ab Wheel Rollout|C|1-3 months|D|Abs, lats, shoulders|From the knees, roll the wheel out until the body is long and pull it back in without the hips sagging.|
+Toes to Bar|C|2-4 months|D|Abs, hip flexors, lats|Hanging from the bar, bring the straight legs up until the toes touch it.|Toes to Bar
+Windshield Wipers|B|6-12 months|D|Obliques, abs, lats|Hanging with the legs up at the bar, swing them from side to side like a windscreen wiper.|Windshield Wipers
+Standing Ab Wheel Rollout|A|1-2 years|D|Abs, lats, shoulders|The ab wheel rollout from standing, all the way out and back.|Standing Ab Wheel Rollout
+Hollow Body Rock|D|2-4 weeks|D|Abs, hip flexors|In a hollow body hold, rock back and forth without the shape breaking.|Hollow Body Rock
+Tuck L-sit|D|2-4 weeks|I|Hip flexors, abs, triceps|Support on straight arms with the knees tucked up to the chest.|Tuck L-Sit
+Dragon Flag Negative|D|1-2 months|D|Abs, lats, lower back|Lower slowly from the top of a dragon flag, keeping the body straight from the shoulders.|Dragon Flag Negative`,
+legs: `Bodyweight Squat|F|1-2 weeks|D|Quads, glutes, hamstrings|Hips back and down until the thighs pass parallel, chest up.|
+Split Squat|F|1-2 weeks|D|Quads, glutes|Lunge stance, lower the back knee to the floor and stand back up.|Split Squat
+Glute Bridge|F|1-2 weeks|D|Glutes, hamstrings|Lying on your back with the knees bent, drive the hips up until knees, hips and shoulders line up.|
+Wall Sit|F|1-2 weeks|I|Quads|Back flat against a wall, thighs parallel to the floor, and hold.|
+Assisted Pistol Squat|D|1-4 months|D|Quads, glutes, core|One-leg squat holding a post or doorframe for balance.|Assisted Pistol Squat
+Bulgarian Split Squat|D|1-4 months|D|Quads, glutes|Split squat with the back foot raised on a bench.|
+Cossack Squat|D|2-6 weeks|D|Quads, adductors, glutes|Wide stance, sink onto one leg while the other stays straight with its toes up.|Cossack Squat
+Single Leg Glute Bridge|D|2-4 weeks|D|Glutes, hamstrings|A glute bridge with one leg held straight in the air.|Single Leg Glute Bridge
+Single Leg Calf Raise|D|2-4 weeks|D|Calves|On a step, rise all the way onto the toes of one foot, then lower slowly below the step.|
+Reverse Nordic Curl|C|2-6 months|D|Quads, hip flexors|Kneeling upright, lean back with straight hips and pull yourself up with the quads.|Nordic Leg Extension
+Nordic Curl|C|3-6 months|D|Hamstrings, calves|Feet anchored, lower the straight body forwards slowly and pull back up.|Nordic Hamstring Curl
+Sissy Squat|C|4-8 months|D|Quads|On your toes, push the knees forward and lean back as you lower.|Sissy Squat
+Skater Squat|C|2-4 months|D|Quads, glutes|One-leg squat with the free knee bent behind you, lowered until it touches a pad.|Skater Squat
+Beginner Shrimp Squat|C|2-4 months|D|Quads, glutes|Shrimp squat with the back knee lowering onto a pad and the arms forward for balance.|Beginner Shrimp Squat
+Sliding Leg Curl|C|1-3 months|D|Hamstrings, glutes|Bridge up with your heels on sliders or a towel, curl the heels in and push them back out without letting the hips drop.|Sliding Leg Curl
+Single Leg Hip Thrust|C|1-3 months|D|Glutes, hamstrings|Shoulders on a bench, drive the hips up on one leg.|Single Leg Hip Thrust
+Pistol Squat|B|6-12 months|D|Quads, glutes, core, calves|A full one-leg squat with the other leg straight out in front.|
+Shrimp Squat|B|6-12 months|D|Quads, glutes|One-leg squat holding the back foot behind you, knee down to the floor.|
+Jumping Pistol Squat|B|9-15 months|D|Quads, glutes, calves|Explode out of the bottom of a pistol into a jump and land straight into the next rep.|Jumping Pistol Squat
+Single Leg Sliding Leg Curl|B|4-8 months|D|Hamstrings, glutes|The sliding leg curl on one leg.|Single Leg Sliding Leg Curl
+Dragon Pistol Squat|A|1-2 years|D|Quads, glutes, hip mobility|A pistol with the free leg passed behind the standing leg.|Dragon Pistol Squat
+Advanced Shrimp Squat|A|1-2 years|D|Quads, glutes|Hold the back foot with both hands behind you, so nothing helps your balance.|Advanced Shrimp Squat
+Natural Leg Extension|A|1-2 years|D|Quads|Kneeling with the feet anchored, lean back as a straight plank from the knees with the arms overhead, then pull back up.|Natural Leg Extension
+Weighted Pistol Squat|Scalable|1-2 years|D|Quads, glutes, core|Pistol squats holding a weight. Keep adding kilos: there is no top grade.|Weighted Pistol Squat
+Elevated Shrimp Squat|S|2-3 years|D|Quads, glutes|An advanced shrimp squat standing on a box, so the knee goes lower than the foot.|Elevated Shrimp Squat
+Single Leg Sissy Squat|S|2-3 years|D|Quads|A sissy squat on one leg.|Single Leg Sissy Squat
+Single Leg Nordic Curl|SS|3-5 years|D|Hamstrings|A full Nordic curl on one leg.|Single Leg Nordic Curl`,
+};
+// prerequisite > unlocks (the Wings tree, plus places for the skills it lists without links)
+const SKILL_EDGES = `Assisted Push-up>Push-up;Push-up>Elbow Lever;Push-up>Dip;Dip>Pike Push-up;Dip>Planche Lean;Planche Lean>Pseudo Push-up;Pseudo Push-up>Tuck Planche;
+Pike Push-up>Crow Pose;Crow Pose>Assisted Handstand;Tuck Planche>Tuck Planche PU;Tuck Planche>Adv. Tuck Planche;Adv. Tuck Planche>Adv. Tuck Planche PU;Adv. Tuck Planche>Super Adv. Tuck PL;
+Super Adv. Tuck PL>Straddle Planche;Straddle Planche>Straddle Planche PU;Straddle Planche>Half Lay Planche;Pike Push-up>Elevated Pike PU;Assisted Handstand>Handstand;Elevated Pike PU>Bent Arm Stand;
+Handstand>Bent Arm Stand;Bent Arm Stand>Assisted HSPU;Assisted HSPU>HSPU;Straight Arm Press to HS>Bent Arm Stand;Bent Arm Press to HS>Straight Arm Press to HS;Elevated Pike PU>Bent Arm Press to HS;
+Half Lay Planche>Full Planche;Full Planche>One Arm Planche;Full Planche>Maltese;Full Planche>Full Planche PU;Super Adv. Tuck PL>90 Degree Hold;90 Degree Hold>Back Lever;90 Degree Hold>90 Degree PU;
+HSPU>90 Degree PU;HSPU>Deep HSPU;HSPU>OAHS;Sit-up>Hollow Body Hold;Hollow Body Hold>Dragon Flag;Sit-up>L-sit Compression;L-sit Compression>L-sit;Assisted Inverted Row>Inverted Row;
+Inverted Row>Pull-up;Assisted Pull-up>Pull-up;Active Hang>Assisted Pull-up;Deadhang>Active Hang;Pull-up>Tuck FL;Tuck FL>Tuck FL Row;Tuck FL>Pike FL;Pike FL>Pike FL Row;Pike FL>Adv. Tuck FL;
+Adv. Tuck FL>Adv. Tuck FL Row;Adv. Tuck FL>Super Adv. Tuck FL;Adv. Tuck FL Row>Super Adv. Tuck FL;Super Adv. Tuck FL>Straddle FL;Straddle FL>Half Lay FL;Straddle FL>Straddle FL Row;
+Half Lay FL>Full Front Lever;Straddle FL Row>Full FL Row;Full Front Lever>Full FL Row;Full FL Row>Front Lever Touch;Pull-up>Scapula Pull-up;Scapula Pull-up>Chest Pull-up;Chest Pull-up>Weighted Pull-ups;
+Chest Pull-up>Waist Pull-up;Waist Pull-up>Muscle-Up;Muscle-Up>Clean Muscle-Up;Waist Pull-up>Archer Pull-up;Archer Pull-up>Assisted OAC;Assisted OAC>Assisted OAP;Assisted OAC>OAC/OAP;Assisted OAP>OAC/OAP;
+Bodyweight Squat>Split Squat;Split Squat>Bulgarian Split Squat;Bulgarian Split Squat>Sissy Squat;Bulgarian Split Squat>Reverse Nordic Curl;Reverse Nordic Curl>Sissy Squat;Reverse Nordic Curl>Nordic Curl;
+Handstand>Assisted OAHS;Assisted OAHS>OAHS;OAHS>OA Flag;Clean Muscle-Up>Butterfly;Dip>Muscle-Up;Split Squat>Assisted Pistol Squat;Assisted Pistol Squat>Pistol Squat;Bulgarian Split Squat>Pistol Squat;
+Pistol Squat>Shrimp Squat;Pistol Squat>Dragon Pistol Squat;Push-up>Archer Push-up;Dip>Ring Support Hold;Ring Support Hold>Ring Dip;Dip>Ring Dip;Push-up>Decline Push-up;Decline Push-up>Pike Push-up;Push-up>Frog Stand;Frog Stand>Crow Pose;Push-up>Wall Walk;Wall Walk>Assisted Handstand;Handstand>Handstand Shoulder Taps;Handstand>Handstand Walk;Bent Arm Stand>Tiger Bend Push-up;Elbow Lever>Tiger Bend Push-up;Active Hang>Skin the Cat;Skin the Cat>German Hang;German Hang>Back Lever;Inverted Row>Archer Inverted Row;Archer Inverted Row>One Arm Inverted Row;Tuck FL Row>Ice Cream Maker;Adv. Tuck FL>Front Lever Raise;Active Hang>Negative Pull-up;Negative Pull-up>Pull-up;Negative Pull-up>Chin-up;Pull-up>L-sit Pull-up;L-sit>L-sit Pull-up;Archer Pull-up>Typewriter Pull-up;Muscle-Up>Ring Muscle-Up;Ring Support Hold>Ring Muscle-Up;Ring Muscle-Up>Assisted Iron Cross;Assisted Iron Cross>Iron Cross;Back Lever>Iron Cross;Deadhang>Hanging Knee Raise;Hanging Knee Raise>Hanging Leg Raise;Hanging Leg Raise>Toes to Bar;Toes to Bar>Windshield Wipers;Plank>Ab Wheel Rollout;Ab Wheel Rollout>Standing Ab Wheel Rollout;Hollow Body Hold>Hollow Body Rock;Hollow Body Rock>Dragon Flag Negative;Dragon Flag Negative>Dragon Flag;L-sit Compression>Tuck L-sit;Tuck L-sit>L-sit;Side Plank>Human Flag;Bodyweight Squat>Wall Sit;Bodyweight Squat>Cossack Squat;Bodyweight Squat>Single Leg Calf Raise;Glute Bridge>Single Leg Glute Bridge;Bulgarian Split Squat>Skater Squat;Bulgarian Split Squat>Beginner Shrimp Squat;Single Leg Glute Bridge>Sliding Leg Curl;Single Leg Glute Bridge>Single Leg Hip Thrust;Skater Squat>Shrimp Squat;Beginner Shrimp Squat>Shrimp Squat;Pistol Squat>Jumping Pistol Squat;Pistol Squat>Weighted Pistol Squat;Shrimp Squat>Advanced Shrimp Squat;Advanced Shrimp Squat>Elevated Shrimp Squat;Sliding Leg Curl>Single Leg Sliding Leg Curl;Sissy Squat>Natural Leg Extension;Reverse Nordic Curl>Natural Leg Extension;Natural Leg Extension>Single Leg Sissy Squat;Sissy Squat>Single Leg Sissy Squat;Nordic Curl>Single Leg Nordic Curl;Single Leg Sliding Leg Curl>Single Leg Nordic Curl;L-sit>V-sit;V-sit>I-sit;I-sit>Manna;Pull-up>Human Flag;Handstand>Human Flag;Full Front Lever>Victorian;Back Lever>Victorian`;
+const slug = n => n.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+const SKILLS = [], SKBY = new Map(), SK_FOR_EX = new Map();
+for (const [branch, txt] of Object.entries(SKILL_DATA)) for (const line of txt.split('\n')){
+  const [name, grade, time, mode, muscles, desc, exName] = line.split('|');
+  const sk = {id: 'sk:' + slug(name), name, grade, time, iso: mode === 'I', muscles, desc, branch, exName: exName || name, req: [], unlocks: []};
+  SKILLS.push(sk); SKBY.set(sk.name, sk);
+}
+SKILL_EDGES.split(';').map(x => x.trim()).filter(Boolean).forEach(e => { const [a, b] = e.split('>').map(x => SKBY.get(x.trim())); if (a && b){ b.req.push(a.id); a.unlocks.push(b.id); } });
+SKBY.clear(); SKILLS.forEach(sk => SKBY.set(sk.id, sk));
+// every skill gets an exercise to log it with (existing ones are reused, so old history still counts)
+for (const sk of SKILLS){
+  let ex = BUILTIN.find(b => b.name === sk.exName);
+  if (!ex){
+    const cat = sk.branch === 'legs' ? 'Legs' : sk.branch === 'core' && 'FD'.includes(sk.grade) ? 'Core' : sk.grade === 'F' || sk.grade === 'D' ? (sk.branch.endsWith('pull') ? 'Back' : 'Chest') : 'Skills';
+    ex = B(cat, sk.iso ? 'time' : /^weighted/i.test(sk.exName) ? 'bw' : sk.branch === 'legs' || sk.branch === 'core' ? 'reps' : 'bw', [sk.exName])[0];
+    BUILTIN.push(ex);
+  }
+  sk.ex = ex.id;
+  if (!SK_FOR_EX.has(ex.id)) SK_FOR_EX.set(ex.id, sk);
+}
+const exIndex = () => { const m = new Map(); for (const e of [...BUILTIN, ...S.custom]) m.set(e.id, e); return m; };
+let EXI = new Map();
+const allEx = () => [...BUILTIN, ...S.custom].sort((a, b) => a.name.localeCompare(b.name));
+const exInfo = (id, fallback) => EXI.get(id) || fallback || {id, name: 'Unknown exercise', cat: 'Other', type: 'wr'};
+
+/* ---------------- state ---------------- */
+const DEFAULT_SETTINGS = {defaultRest: 90, sound: true};
+const S = {
+  dir: null, dirName: '', connected: false,
+  settings: {...DEFAULT_SETTINGS},
+  custom: [], templates: [], history: [], active: null,
+  view: 'workout', viewArg: null, ed: null,
+  rest: null, // {end, total}
+  exFilter: 'All', exSearch: '',
+  skills: {status: {}, t: {}}, skBranch: (() => { try { return localStorage.getItem('repped-sk-branch') || 'hpush'; } catch (e) { return 'hpush'; } })(),
+  print: {series: [], repeat: 1, last: true, extraSets: 1, extraEx: 1, title: '', number: true},
+};
+
+/* ---------------- folder storage ---------------- */
+const idb = {
+  open(){ return new Promise((res, rej) => { const r = indexedDB.open('repped', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
+  async get(k){ const db = await this.open(); return new Promise(res => { const r = db.transaction('kv').objectStore('kv').get(k); r.onsuccess = () => res(r.result); r.onerror = () => res(undefined); }); },
+  async set(k, v){ const db = await this.open(); return new Promise(res => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => res(); t.onerror = () => res(); }); },
+};
+/* iPhone (Safari) can't open folders, so there the same files are kept inside the app, in a store that
+   acts like a folder. Export backup / Import backup move everything between the computer and the phone. */
+const PHONE = !('showDirectoryPicker' in window) || location.protocol === 'https:' || /[?&]app=1/.test(location.search);
+const TOUCH = window.matchMedia('(pointer:coarse)').matches;
+const notFound = () => new DOMException('Not found', 'NotFoundError');
+const phoneStore = {
+  files: null, meta: null,      // meta: when each file last changed here (t) and when files were deleted (gone), for syncing
+  async load(){ if (!this.files) { const v = await idb.get('phonefiles'); this.files = v && typeof v === 'object' ? v : {};
+      const m = await idb.get('phonemeta'); this.meta = m && typeof m === 'object' ? m : {}; this.meta.t = this.meta.t || {}; this.meta.gone = this.meta.gone || {}; } return this; },
+  async save(){ await idb.set('phonefiles', this.files); await idb.set('phonemeta', this.meta); },
+  touched(path){ this.meta.t[path] = Date.now(); delete this.meta.gone[path]; if (path !== 'active.json') syncSoon(); },
+  removed(path){ this.meta.gone[path] = Date.now(); delete this.meta.t[path]; if (path !== 'active.json') syncSoon(); },
+};
+class PhoneFile {
+  constructor(path, name){ this.path = path; this.name = name; this.kind = 'file'; }
+  async getFile(){ const t = phoneStore.files[this.path]; if (t == null) throw notFound(); return { text: async () => t }; }
+  async createWritable(){ let buf = ''; const path = this.path;
+    return { write: async v => { buf += typeof v === 'string' ? v : await new Blob([v]).text(); }, close: async () => { if (phoneStore.files[path] === buf) return; phoneStore.files[path] = buf; phoneStore.touched(path); await phoneStore.save(); } }; }
+}
+class PhoneDir {
+  constructor(path, name){ this.path = path; this.name = name; this.kind = 'directory'; }
+  sub(name){ return this.path ? this.path + '/' + name : name; }
+  async getDirectoryHandle(name, o){ const p = this.sub(name); if (!(o && o.create) && !Object.keys(phoneStore.files).some(k => k.startsWith(p + '/'))) throw notFound(); return new PhoneDir(p, name); }
+  async getFileHandle(name, o){ const p = this.sub(name); if (!(o && o.create) && phoneStore.files[p] == null) throw notFound(); return new PhoneFile(p, name); }
+  async removeEntry(name){ const p = this.sub(name); if (phoneStore.files[p] == null) return; delete phoneStore.files[p]; phoneStore.removed(p); await phoneStore.save(); }
+  async *entries(){
+    const pre = this.path ? this.path + '/' : '', dirs = new Set();
+    for (const k of Object.keys(phoneStore.files)) {
+      if (!k.startsWith(pre)) continue;
+      const rest = k.slice(pre.length), i = rest.indexOf('/');
+      if (i < 0) yield [rest, new PhoneFile(k, rest)];
+      else if (!dirs.has(rest.slice(0, i))) { dirs.add(rest.slice(0, i)); yield [rest.slice(0, i), new PhoneDir(pre + rest.slice(0, i), rest.slice(0, i))]; }
+    }
+  }
+  async queryPermission(){ return 'granted'; }
+  async requestPermission(){ return 'granted'; }
+}
+async function phoneRoot(){ await phoneStore.load(); try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {} return new PhoneDir('', 'This device'); }
+
+/* Backups: every file in the workouts folder (or the phone's store) in one file */
+async function allFiles(dir, pre, out){
+  for await (const [name, h] of dir.entries()){
+    if (h.kind === 'directory') { if (pre === '' && ['templates', 'history'].includes(name)) await allFiles(h, name + '/', out); }
+    else if (name.toLowerCase().endsWith('.json')) { try { out[pre + name] = await (await h.getFile()).text(); } catch (e) {} }
+  }
+  return out;
+}
+async function exportBackup(){
+  if (!S.connected){ toast('Open your workouts first', true); return; }
+  if (S.active) { try { await writeJSON('active.json', S.active); } catch (e) {} }
+  const files = await allFiles(S.dir, '', {});
+  const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const name = `Repped backup ${stamp}.json`, blob = new Blob([JSON.stringify({app: APP, kind: 'backup', version: VERSION, exported: d.toISOString(), files})], {type: 'application/json'});
+  const file = new File([blob], name, {type: 'application/json'});
+  if (PHONE && TOUCH && navigator.canShare && navigator.canShare({files: [file]})) { try { await navigator.share({files: [file], title: name}); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast(`Saved ${name}`);
+}
+async function importBackup(f){
+  let j; try { j = JSON.parse(await f.text()); } catch (e) { toast("That file isn't a Repped backup", true); return; }
+  if (!j || j.kind !== 'backup' || !j.files || typeof j.files !== 'object') { toast("That file isn't a Repped backup", true); return; }
+  const paths = Object.keys(j.files).filter(k => /^(templates\/|history\/)?[^/]+\.json$/i.test(k));
+  const nT = paths.filter(k => k.startsWith('templates/')).length, nH = paths.filter(k => k.startsWith('history/')).length;
+  if (!confirm(`Bring in ${nT} template${nT === 1 ? '' : 's'}, ${nH} finished workout${nH === 1 ? '' : 's'}, your skill tree and settings from this backup? Files with the same name here are replaced.`)) return;
+  for (const k of paths) {
+    let text = j.files[k];
+    if (k === 'skills.json') {      // the skill tree keeps whichever status was set most recently on each skill
+      try { const theirs = JSON.parse(text), m = mergeSkills(S.skills, theirs); text = JSON.stringify({app: APP, version: VERSION, updated: new Date().toISOString(), status: m.status, t: m.t}, null, 2); } catch (e) {}
+    }
+    const [d, name] = await fileParent(k, true), w = await (await d.getFileHandle(name, {create: true})).createWritable();
+    await w.write(text); await w.close();
+  }
+  await loadAll();
+  if (S.active){ S.view = 'editor'; S.ed = {mode: 'active', doc: S.active}; }
+  render(); toast('Backup imported');
+}
+
+/* ---------------- syncing between devices ----------------
+   Your phone and computer each keep their own copy, and meet in one file (repped-sync.json) in a private GitHub
+   repository of yours. Each file carries the time it last changed, so the newer copy of each wins; a workout
+   logged on one device and a template edited on the other both survive. The workout in progress is not synced. */
+const SYNC_FILE = 'repped-sync.json';
+const sync = { cfg: null, busy: false, again: false, last: 0, error: '', timer: null };
+const b64enc = t => { const u = new TextEncoder().encode(t); let o = ''; for (let i = 0; i < u.length; i += 0x8000) o += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(o); };
+const b64dec = b => new TextDecoder().decode(Uint8Array.from(atob(String(b).replace(/\s/g, '')), c => c.charCodeAt(0)));
+function ghFetch(path, opt){
+  opt = opt || {};
+  return fetch('https://api.github.com/repos/' + sync.cfg.repo + path, { method: opt.method || 'GET', cache: 'no-store', body: opt.body,
+    headers: { Authorization: 'Bearer ' + sync.cfg.token, Accept: opt.raw ? 'application/vnd.github.raw+json' : 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' } });
+}
+const ghWhy = r => r.status === 401 ? "GitHub didn't accept the token. Make a new one and connect again." : r.status === 404 ? "Couldn't find that repository with this token. Check the name and that the token is allowed to use it."
+  : r.status === 403 ? "GitHub refused: the token needs Contents set to Read and write for that repository." : 'GitHub answered ' + r.status + '.';
+function syncSoon(ms){ if (!sync.cfg) return; clearTimeout(sync.timer); sync.timer = setTimeout(() => syncNow(), ms || 6000); }
+async function syncNow(manual, tries){
+  if (!sync.cfg || !PHONE || !S.connected) return false;
+  if (sync.busy){ sync.again = true; return false; }
+  if (!navigator.onLine){ if (manual) toast("You're offline. It will sync when you're back online", true); return false; }
+  // while a workout or template is being edited, what's on screen comes first; the sync waits
+  if (S.view === 'editor' && S.ed){ syncSoon(30000); if (manual) toast('It will sync when you leave this screen'); return false; }
+  sync.busy = true; sync.again = false;
+  try {
+    let sha = null, remote = { files: {} };
+    const r = await ghFetch('/contents/' + SYNC_FILE);
+    if (r.status === 200){
+      const j = await r.json(); sha = j.sha;
+      const text = j.content ? b64dec(j.content) : await (await ghFetch('/contents/' + SYNC_FILE, {raw: true})).text();   // (big files come without their content)
+      try { const d = JSON.parse(text); if (d && d.files && typeof d.files === 'object') remote = d; } catch (e) {}
+    } else if (r.status !== 404) throw new Error(ghWhy(r));
+    const L = phoneStore.files, mt = phoneStore.meta.t, mg = phoneStore.meta.gone, R = remote.files, out = {};
+    const cut = Date.now() - 90 * 864e5;
+    let localCh = false, remoteCh = sha === null;
+    for (const path of new Set([...Object.keys(L), ...Object.keys(mg), ...Object.keys(R)])){
+      if (path === 'active.json') continue;
+      const mine = L[path] != null ? {t: mt[path] || 1, text: L[path]} : mg[path] ? {t: mg[path], gone: true} : null;
+      const theirs = R[path] && typeof R[path] === 'object' ? R[path] : null;
+      let win = !mine ? theirs : !theirs ? mine : theirs.t >= mine.t ? theirs : mine;
+      if (path === 'skills.json' && mine && theirs && !mine.gone && !theirs.gone && mine.text !== theirs.text){     // skill by skill, the latest status wins
+        try { const a = JSON.parse(mine.text), b = JSON.parse(theirs.text), m = mergeSkills({status: a.status, t: a.t}, {status: b.status, t: b.t});
+          const text = JSON.stringify({app: APP, version: VERSION, updated: new Date().toISOString(), status: m.status, t: m.t}, null, 2);
+          const same = x => { try { const y = JSON.parse(x); return JSON.stringify(mergeSkills({status: y.status, t: y.t}, null)) === JSON.stringify(m); } catch (e) { return false; } };
+          win = same(theirs.text) ? theirs : same(mine.text) ? mine : {t: Date.now(), text}; } catch (e) {}
+      }
+      if (win.gone && win.t < cut){ delete mg[path]; if (theirs) remoteCh = true; continue; }       // old deletions are forgotten
+      out[path] = win.gone ? {t: win.t, gone: true} : {t: win.t, text: win.text};
+      if (!theirs || theirs.t !== win.t || !!theirs.gone !== !!win.gone || (!win.gone && theirs.text !== win.text)) remoteCh = true;
+      if (win.gone){ if (L[path] != null){ delete L[path]; localCh = true; } delete mt[path]; mg[path] = win.t; }
+      else { if (L[path] !== win.text){ L[path] = win.text; localCh = true; } mt[path] = win.t; delete mg[path]; }
+    }
+    await phoneStore.save();
+    if (remoteCh){
+      const body = JSON.stringify({ message: 'Repped sync', content: b64enc(JSON.stringify({app: APP, kind: 'sync', updated: new Date().toISOString(), files: out})), sha: sha || undefined });
+      const w = await ghFetch('/contents/' + SYNC_FILE, {method: 'PUT', body});
+      if ((w.status === 409 || w.status === 422) && (tries || 0) < 2){ sync.busy = false; return syncNow(manual, (tries || 0) + 1); }   // the other device got in first: go again
+      if (!w.ok) throw new Error(ghWhy(w));
+    }
+    if (localCh){ await loadAll(); render(); if (!manual) toast('Synced from your other device'); }
+    sync.last = Date.now(); sync.error = '';
+    try { localStorage.setItem('repped-synced', String(sync.last)); } catch (e) {}
+    if (manual) toast('Synced');
+    return true;
+  } catch (e) {
+    sync.error = /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? "Couldn't reach GitHub. It will try again." : e.message;
+    if (manual) toast(sync.error, true);
+    return false;
+  } finally {
+    sync.busy = false;
+    if (S.view === 'settings' && !/INPUT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) render();
+    if (sync.again) syncSoon(3000);
+  }
+}
+async function syncConnect(){
+  const repo = ($('#sy-repo').value || '').trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/, '').replace(/\/+$/, ''), token = ($('#sy-token').value || '').trim();
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)){ toast('Type the repository as yourname/repped-data', true); return; }
+  if (!token){ toast('Paste the token from GitHub', true); return; }
+  sync.cfg = {repo, token}; sync.error = '';
+  try { const r = await ghFetch(''); if (!r.ok){ const why = ghWhy(r); sync.cfg = null; toast(why, true); return; }
+    const j = await r.json(); if (j && j.private === false && !confirm('That repository is public, so anyone could read your workouts. Use it anyway?')){ sync.cfg = null; return; } }
+  catch (e) { sync.cfg = null; toast("Couldn't reach GitHub. Check you're online and try again.", true); return; }
+  await idb.set('sync', sync.cfg);
+  render();
+  await syncNow(true);
+}
+async function syncStop(){
+  if (!confirm('Stop syncing on this device? Your workouts stay here, and the copy on GitHub is left as it is.')) return;
+  sync.cfg = null; sync.error = ''; clearTimeout(sync.timer); await idb.set('sync', null); render();
+}
+function syncBox(){
+  if (!PHONE) return '';
+  const c = sync.cfg, when = sync.last ? new Date(sync.last).toLocaleString(undefined, {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : '';
+  if (c) return `<div class="pbox" style="max-width:560px"><h3>Syncing between devices</h3>
+    <p class="muted" style="margin-bottom:10px"><span class="dot ${sync.error ? 'off' : ''}" style="display:inline-block;margin-right:6px"></span>${esc(c.repo)}${sync.busy ? ': syncing…' : when ? ': last synced ' + esc(when) : ': not synced yet'}</p>
+    ${sync.error ? `<p style="color:#ff8a80;margin-bottom:10px">${esc(sync.error)}</p>` : ''}
+    <div class="row"><button class="btn" data-act="sy-now">Sync now</button><button class="btn ghost" data-act="sy-stop">Stop syncing</button></div>
+    <p class="dim" style="font-size:12.5px;margin-top:10px">It syncs by itself when you open Repped, after you save something, and every couple of minutes while it's open. The workout in progress stays on the device you started it on until you finish it.</p></div>`;
+  return `<div class="pbox" style="max-width:560px"><h3>Sync between devices</h3>
+    <p class="muted" style="margin-bottom:10px">Keeps your phone and computer the same, through a private GitHub repository of yours. Set it up once on each device with the same details:</p>
+    <ol class="muted" style="margin:0 0 12px;padding-left:20px;font-size:13.5px;line-height:1.6"><li>On GitHub, make a new <b>private</b> repository, e.g. <b>repped-data</b>, and tick "Add a README file".</li>
+      <li>Go to Settings (your account) &gt; Developer settings &gt; Personal access tokens &gt; Fine-grained tokens &gt; Generate new token.</li>
+      <li>Repository access: "Only select repositories" and pick that repository. Permissions: Contents, Read and write. Generate it and copy it.</li></ol>
+    <div class="field"><label for="sy-repo">Repository</label><input class="inp" id="sy-repo" placeholder="yourname/repped-data" autocapitalize="off" autocomplete="off" spellcheck="false"></div>
+    <div class="field"><label for="sy-token">Token</label><input class="inp" id="sy-token" type="password" placeholder="github_pat_…" autocomplete="off"></div>
+    <button class="btn red" data-act="sy-connect">Connect and sync</button>
+    <p class="dim" style="font-size:12.5px;margin-top:10px">The token is kept only on this device and is only ever sent to GitHub.</p></div>`;
+}
+async function syncStart(){
+  if (!PHONE) return;
+  try { const c = await idb.get('sync'); if (c && c.repo && c.token) sync.cfg = c; sync.last = +(localStorage.getItem('repped-synced') || 0); } catch (e) {}
+  if (!sync.cfg) return;
+  syncNow();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncSoon(800); });
+  window.addEventListener('online', () => syncSoon(1500));
+  setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 120000);
+}
+async function subdir(name, create = true){ return S.dir.getDirectoryHandle(name, {create}); }
+async function fileParent(path, create){
+  const parts = path.split('/'); const name = parts.pop(); let d = S.dir;
+  for (const p of parts) d = await d.getDirectoryHandle(p, {create});
+  return [d, name];
+}
+const writeChains = new Map();
+function writeJSON(path, obj){
+  const prev = writeChains.get(path) || Promise.resolve();
+  const next = prev.catch(() => {}).then(async () => {
+    const [d, name] = await fileParent(path, true);
+    const fh = await d.getFileHandle(name, {create: true});
+    const w = await fh.createWritable();
+    await w.write(JSON.stringify(obj, null, 2)); await w.close();
+  });
+  writeChains.set(path, next);
+  return next.catch(e => { console.error(e); setDisconnected(); toast(`Couldn't save ${path}. Is the USB still plugged in?`, true); throw e; });
+}
+async function readJSON(path){
+  try { const [d, name] = await fileParent(path, false); const f = await (await d.getFileHandle(name)).getFile(); return JSON.parse(await f.text()); }
+  catch (e) { return null; }
+}
+async function removeFile(path){
+  try { const [d, name] = await fileParent(path, false); await d.removeEntry(name); } catch (e) {}
+}
+async function listJSON(dirName){
+  const out = [];
+  let d; try { d = await subdir(dirName, true); } catch (e) { return out; }
+  for await (const [name, h] of d.entries()){
+    if (h.kind !== 'file' || !name.toLowerCase().endsWith('.json')) continue;
+    try { const data = JSON.parse(await (await h.getFile()).text()); data._file = `${dirName}/${name}`; out.push(data); }
+    catch (e) { console.warn('Skipped unreadable file', name); }
+  }
+  return out;
+}
+async function uniquePath(dirName, base, ownFile){
+  const taken = new Set([...S.templates, ...S.history].map(x => x._file).filter(f => f && f !== ownFile));
+  let p = `${dirName}/${base}.json`, i = 2;
+  while (taken.has(p)) p = `${dirName}/${base} (${i++}).json`;
+  return p;
+}
+function stripMeta(o){ const c = clone(o); delete c._file; return c; }
+
+async function connectHandle(handle){
+  S.dir = handle; S.dirName = handle.name || 'Folder';
+  await loadAll();
+  S.connected = true;
+  if (S._skillsDirty) { S._skillsDirty = false; saveSkills().catch(() => {}); }
+  if (!(handle instanceof PhoneDir)) { try { await idb.set('dir', handle); } catch (e) {} }
+  publishWorkouts();
+}
+// the list of templates goes to Revision Master, so Red Timers can offer them in routines
+function publishWorkouts(){ if (host && host.setWorkouts) host.setWorkouts(S.templates.map(t => ({id: t.id, name: t.name}))); }
+// open a template that Red Timers asked for (by id, or by name if the id has changed)
+async function openPending(){
+  const p = S._pending; if (!p) return;
+  if (!S.connected){ toast(`Open your workouts folder to see ${p.name || 'the workout'}`); return; }
+  S._pending = null;
+  const t = S.templates.find(x => x.id === p.id) || S.templates.find(x => x.name.trim().toLowerCase() === String(p.name || '').trim().toLowerCase());
+  if (!t){ toast(`There's no ${p.name || 'such'} template in ${S.dirName}`, true); return; }
+  if (S.active && S.view === 'editor' && S.ed?.mode === 'active'){ toast('A workout is already in progress'); return; }
+  if (S.view !== 'workout') go('workout');
+  openTemplate(t.id);
+}
+window.Repped = { open(p){ S._pending = p; openPending(); },
+  // Revision Master's "Reopen files" button gives permission, then asks for the folder to be opened again
+  async reopen(){ const h = S.dir || S._remembered; if (!h || S.connected) return; try { if ((await h.queryPermission({mode: 'readwrite'})) !== 'granted') return; await connectHandle(h); S._connectError = ''; if (S.active){ S.view = 'editor'; S.ed = {mode: 'active', doc: S.active}; } render(); openPending(); } catch (e) {} } };
+function setDisconnected(){ S.connected = false; renderRail(); }
+
+async function loadAll(){
+  const [settings, custom, templates, history, active, skills] = await Promise.all([
+    readJSON('settings.json'), readJSON('exercises.json'), listJSON('templates'), listJSON('history'), readJSON('active.json'), readJSON('skills.json')]);
+  // skill statuses live in the folder (skills.json) and, inside Revision Master, in its library file too
+  const inFolder = {status: skills && skills.status && typeof skills.status === 'object' ? skills.status : {}, t: skills && skills.t && typeof skills.t === 'object' ? skills.t : {}};
+  let inHost = null; if (host && host.skillsGet) { try { inHost = await host.skillsGet(); } catch (e) {} }
+  S.skills = mergeSkills(inFolder, inHost);
+  S._skillsDirty = JSON.stringify(S.skills) !== JSON.stringify(mergeSkills(inFolder, null));
+  S.settings = {...DEFAULT_SETTINGS, ...(settings || {})};
+  S.custom = Array.isArray(custom?.exercises) ? custom.exercises : [];
+  EXI = exIndex();
+  S.templates = templates.filter(t => t.kind === 'template').sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || a.name.localeCompare(b.name));
+  S.history = history.filter(h => h.kind === 'session').sort((a, b) => new Date(b.start) - new Date(a.start));
+  let act = active && active.kind === 'session' ? active : null;
+  if (!act){ try { const b = JSON.parse(localStorage.getItem('repped-active-backup') || 'null'); if (b && b.dir === S.dirName) act = b.session; } catch (e) {} }
+  S.active = act;
+}
+
+/* ---------------- data operations ---------------- */
+async function saveTemplate(t){
+  t.kind = 'template'; t.app = APP; t.version = VERSION; t.updated = new Date().toISOString();
+  const want = await uniquePath('templates', safeName(t.name), t._file);
+  const old = t._file;
+  await writeJSON(want, stripMeta(t)); t._file = want;
+  if (old && old !== want) await removeFile(old);
+  const i = S.templates.findIndex(x => x.id === t.id);
+  if (i >= 0) S.templates[i] = t; else S.templates.push(t);
+  S.templates.sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || a.name.localeCompare(b.name));
+  publishWorkouts();
+}
+async function deleteTemplate(t){ if (t._file) await removeFile(t._file); S.templates = S.templates.filter(x => x.id !== t.id); publishWorkouts(); }
+async function saveSession(s){
+  s.kind = 'session'; s.app = APP; s.version = VERSION;
+  if (!s._file){ const d = new Date(s.start); s._file = await uniquePath('history', `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}${pad2(d.getMinutes())} ${safeName(s.name)}`); }
+  await writeJSON(s._file, stripMeta(s));
+  const i = S.history.findIndex(x => x.id === s.id);
+  if (i >= 0) S.history[i] = s; else S.history.push(s);
+  S.history.sort((a, b) => new Date(b.start) - new Date(a.start));
+}
+async function deleteSession(s){ if (s._file) await removeFile(s._file); S.history = S.history.filter(x => x.id !== s.id); }
+async function saveCustom(){ EXI = exIndex(); await writeJSON('exercises.json', {app: APP, version: VERSION, exercises: S.custom}); }
+// skill statuses from two places, kept skill by skill: whichever was set most recently wins
+function mergeSkills(a, b){
+  a = a || {}; b = b || {};
+  const sa = a.status || {}, sb = b.status || {}, ta = a.t || {}, tb = b.t || {}, out = { status: {}, t: {} };
+  for (const id of new Set([...Object.keys(sa), ...Object.keys(sb), ...Object.keys(ta), ...Object.keys(tb)])) {
+    const x = ta[id] || 0, y = tb[id] || 0;
+    const from = y > x ? sb : x > y ? sa : (sa[id] != null ? sa : sb);
+    if (Math.max(x, y)) out.t[id] = Math.max(x, y);
+    if (from[id] != null) out.status[id] = from[id];
+  }
+  return out;
+}
+async function saveSkills(){
+  if (host && host.skillsSet) host.skillsSet(JSON.parse(JSON.stringify(S.skills)));      // (kept even if the folder isn't open)
+  if (S.connected) await writeJSON('skills.json', {app: APP, version: VERSION, updated: new Date().toISOString(), status: S.skills.status, t: S.skills.t});
+}
+// the library file brought statuses set on another computer
+if (host && host.onSkills) host.onSkills(v => { const m = mergeSkills(S.skills, v); if (JSON.stringify(m) === JSON.stringify(S.skills)) return; S.skills = m; if (S.connected) saveSkills().catch(() => {}); if (S.view === 'skills' || S.view === 'exercise') render(); });
+async function saveSettings(){ await writeJSON('settings.json', {app: APP, version: VERSION, ...S.settings}); }
+let activeTimer = null;
+function saveActiveSoon(){
+  try { localStorage.setItem('repped-active-backup', JSON.stringify({dir: S.dirName, session: S.active})); } catch (e) {}
+  clearTimeout(activeTimer);
+  activeTimer = setTimeout(() => { if (S.active) writeJSON('active.json', S.active).catch(() => {}); }, 400);
+}
+async function clearActive(){
+  clearTimeout(activeTimer); S.active = null; S.rest = null;
+  try { localStorage.removeItem('repped-active-backup'); } catch (e) {}
+  await removeFile('active.json');
+}
+
+/* ---------------- history lookups ---------------- */
+function lastSetsFor(exId, excludeId){
+  for (const h of S.history){
+    if (h.id === excludeId) continue;
+    const e = h.exercises.find(x => x.exerciseId === exId);
+    if (e && e.sets.length) return e.sets;
+  }
+  return null;
+}
+function lastDone(templateId){ return S.history.find(h => h.templateId === templateId); }
+const e1rm = (w, r) => (!w || !r) ? 0 : r === 1 ? w : w * (1 + r / 30);
+function setText(type, s){
+  if (!s) return '';
+  switch (type){
+    case 'wr': return (s.w != null ? `${fmtKg(s.w)} kg` : '') + (s.r != null ? ` × ${s.r}` : '');
+    case 'bw': return s.w ? `+${fmtKg(s.w)} kg × ${s.r ?? ''}` : (s.r != null ? `${s.r} reps` : '');
+    case 'reps': return s.r != null ? `${s.r} reps` : '';
+    case 'time': return fmtDur(s.t);
+    case 'cardio': return [s.d != null ? `${fmtNum(s.d)} km` : '', s.t != null ? fmtDur(s.t) : ''].filter(Boolean).join(' in ');
+  }
+  return '';
+}
+function setShort(type, s){
+  switch (type){
+    case 'wr': return s.w != null && s.r != null ? `${fmtKg(s.w)}×${s.r}` : setText(type, s);
+    case 'bw': return s.w ? `+${fmtKg(s.w)}×${s.r ?? ''}` : `${s.r ?? ''}`;
+    case 'reps': return `${s.r ?? ''}`;
+    default: return setText(type, s);
+  }
+}
+// Best number to chart and compare for an exercise in one session.
+function topMetric(type, sets){
+  let v = 0;
+  for (const s of sets){
+    if (type === 'wr') v = Math.max(v, e1rm(s.w, s.r));
+    else if (type === 'bw') v = Math.max(v, s.w ? e1rm(s.w, s.r) : 0) || Math.max(v, s.r || 0);
+    else if (type === 'reps') v = Math.max(v, s.r || 0);
+    else if (type === 'time') v = Math.max(v, s.t || 0);
+    else if (type === 'cardio') v = Math.max(v, s.d || 0);
+  }
+  return v;
+}
+const metricLabel = {wr:'Estimated 1 rep max (kg)', bw:'Best set', reps:'Most reps', time:'Longest set', cardio:'Longest distance (km)'};
+function findPRs(session){
+  const prs = [];
+  for (const e of session.exercises){
+    const prior = S.history.filter(h => h.id !== session.id && new Date(h.start) < new Date(session.start))
+      .flatMap(h => h.exercises.filter(x => x.exerciseId === e.exerciseId).flatMap(x => x.sets));
+    if (!prior.length) continue;
+    const t = e.type, now = e.sets;
+    const max = (arr, f) => arr.reduce((m, s) => Math.max(m, f(s) || 0), 0);
+    const checks = t === 'wr' ? [['heaviest weight', s => s.w, v => `${fmtKg(v)} kg`], ['best estimated 1RM', s => e1rm(s.w, s.r), v => `${fmtKg(Math.round(v * 10) / 10)} kg`]]
+      : t === 'bw' ? [['most reps', s => s.r, v => `${v} reps`], ['most added weight', s => s.w, v => `+${fmtKg(v)} kg`]]
+      : t === 'reps' ? [['most reps', s => s.r, v => `${v} reps`]]
+      : t === 'time' ? [['longest set', s => s.t, fmtDur]]
+      : [['longest distance', s => s.d, v => `${fmtNum(v)} km`]];
+    for (const [label, f, fmt] of checks){
+      const a = max(now, f), b = max(prior, f);
+      if (a > 0 && a > b) prs.push({exercise: e.name, label, value: fmt(a)});
+    }
+  }
+  return prs;
+}
+
+/* ---------------- templates / sessions from data ---------------- */
+function newExerciseEntry(ex){
+  const sets = [{k: 'n'}, {k: 'n'}, {k: 'n'}];
+  return {uid: uid(), exerciseId: ex.id, name: ex.name, type: ex.type, rest: ex.type === 'cardio' ? 0 : S.settings.defaultRest, notes: '', sets};
+}
+function sessionFromTemplate(t){
+  const now = new Date().toISOString();
+  return {id: uid(), kind: 'session', name: t ? t.name : 'Workout', templateId: t ? t.id : null, start: now, notes: '',
+    exercises: t ? t.exercises.map(e => ({uid: uid(), exerciseId: e.exerciseId, name: exInfo(e.exerciseId, e).name, type: exInfo(e.exerciseId, e).type, rest: e.rest ?? S.settings.defaultRest, notes: e.notes || '',
+      sets: e.sets.map(s => ({k: s.k || 'n', target: s.target ? {...s.target} : undefined}))})) : []};
+}
+const structureKey = doc => doc.exercises.map(e => e.exerciseId + ':' + e.sets.map(s => s.k || 'n').join('')).join('|');
+
+const andList = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+function missingStarters(){ const have = new Set(S.templates.map(t => t.name.trim().toLowerCase())); return starterTemplates().filter(t => !have.has(t.name.toLowerCase())); }
+function starterTemplates(){
+  const T = (name, order, list) => ({id: uid(), kind: 'template', name, order, notes: '', exercises: list.map(([n, sets, rest, target]) => {
+    const ex = BUILTIN.find(b => b.name === n);
+    return {exerciseId: ex.id, name: ex.name, type: ex.type, rest: rest ?? S.settings.defaultRest, notes: '', sets: Array.from({length: sets}, () => ({k: 'n', target: target ? {...target} : undefined}))};
+  })});
+  return [
+    T('Upper', 1, [['Push Up', 2], ['Wide Pull Up', 2], ['Ring Dip', 2], ['Chin Up', 2], ['Wall Handstand Hold', 3], ['Inverted Row', 2], ['Dead Hang', 2]]),
+    T('Lower', 2, [['Shrimp Squat', 4], ['Nordic Hamstring Curl', 2], ['Nordic Leg Extension', 2], ['Single Leg Calf Raise', 4], ['Hollow Body Crunch', 2], ['Hollow Body Hold', 2], ['Jump Squat', 2]]),
+    T('Push skills', 5, [['Planche Lean', 3, 120, {t: 15}], ['Pseudo Planche Push Up', 3, 120], ['Wall Handstand Hold', 3, 90, {t: 30}], ['Pike Push Up', 3, 120], ['Dip', 3, 120], ['L-Sit', 3, 90, {t: 15}]]),
+    T('Pull skills', 6, [['Tuck Front Lever', 3, 120, {t: 12}], ['Pull Up', 3, 150], ['Scapular Pull Up', 2, 90], ['Inverted Row', 3, 90], ['Active Hang', 2, 60, {t: 30}], ['Hollow Body Hold', 3, 60, {t: 30}]]),
+    T('Legs and core', 7, [['Assisted Pistol Squat', 3, 90], ['Bulgarian Split Squat', 3, 90], ['Nordic Leg Extension', 3, 90], ['Nordic Hamstring Curl', 3, 120], ['L-Sit Compression Lift', 3, 60], ['Dragon Flag', 3, 90]]),
+    T('Cardio', 3, [['Running', 1, 0, {t: 1200}], ['Skipping', 1, 60, {t: 600}], ['Lateral Neck Curl', 2, 60], ['Front Neck Curl', 2, 60], ['Neck Extension', 2, 60]]),
+    T('Mobility', 4, [['Leg Swings', 2, 0], ['Arm Swings', 2, 0], ['Straddle Fold with Side Bends', 2, 0], ['Forward Fold', 2, 0], ['Horse Stance', 2, 0], ['Wide Split Hold', 2, 0],
+      ['Front Split Hold', 2, 0, {t: 60}], ['Pike Push Up Hold', 2, 0, {t: 60}], ['Shoulder Dislocations', 2, 0]]),
+  ];
+}
+
+/* ================================================================
+   RENDERING
+   ================================================================ */
+const ICON = {
+  workout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 7v10M3 9.5v5M18 7v10M21 9.5v5M6 12h12"/></svg>',
+  history: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  exercises: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 6h14M5 12h14M5 18h9"/></svg>',
+  skills: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="4.5" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="12" cy="19.5" r="2"/><path d="M10.6 6 7.4 10.5M13.4 6l3.2 4.5M7.4 13.5l3.2 4.5M16.6 13.5 13.4 18"/></svg>',
+  print: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M10 12h5M10 16h5"/></svg>',
+  settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>',
+};
+const NAV = [['workout','Workout'], ['skills','Skill tree'], ['history','History'], ['exercises','Exercises'], ['print','Print sheets'], ['settings','Settings']];
+
+function renderRail(){
+  const navKey = S.view === 'editor' ? (S.ed?.mode === 'past' ? 'history' : 'workout') : S.view === 'exercise' ? 'exercises' : S.view;
+  $('#nav').innerHTML = S.dir ? NAV.map(([k, l]) => `<button class="navb ${navKey === k ? 'on' : ''}" data-act="nav" data-v="${k}">${ICON[k]}${l}</button>`).join('') : '';
+  $('#railfoot').innerHTML = S.dir ? `<div class="fold"><span class="dot ${S.connected ? '' : 'off'}"></span>${esc(S.dirName)}</div>${S.connected ? '' : '<button class="btn" style="margin-top:8px;width:100%" data-act="reconnect">Reconnect folder</button>'}` : '';
+}
+function go(view, arg){
+  S.view = view; S.viewArg = arg ?? null;
+  if (view !== 'editor') S.ed = null;
+  render(); $('#main').scrollTop = 0;
+}
+function render(){
+  renderRail();
+  const m = $('#main');
+  if (!S.dir || (!S.connected && !S.templates.length && !S.history.length)) { m.innerHTML = connectView(); updateBars(); return; }
+  const v = S.view;
+  m.innerHTML = v === 'workout' ? workoutView() : v === 'history' ? historyView() : v === 'exercises' ? exercisesView()
+    : v === 'exercise' ? exerciseDetailView(S.viewArg) : v === 'print' ? printView() : v === 'settings' ? settingsView() : v === 'skills' ? skillsView()
+    : v === 'editor' && S.ed ? editorView() : workoutView();
+  if (v === 'print') renderPrintPreview();
+  if (v === 'exercises') { const s = $('#exsearch'); if (s && S._refocusSearch){ s.focus(); s.setSelectionRange(s.value.length, s.value.length); S._refocusSearch = false; } }
+  updateBars();
+}
+
+/* ---------- connect ---------- */
+function connectView(){
+  if (PHONE) return `<div class="connect"><h1>Repped</h1><p class="lead">Your workouts are kept on this device.</p>
+    <button class="btn red big" data-act="phone-start" style="width:100%">Start</button>
+    ${S._connectError ? `<p style="color:#ff8a80">${esc(S._connectError)}</p>` : ''}</div>`;
+  const supported = 'showDirectoryPicker' in window;
+  const remembered = S._remembered;
+  return `<div class="connect">
+    <h1>Repped</h1>
+    <p class="lead">Your workouts live as files in a folder you pick. Put the folder (and this page) on a USB stick and you can train from any computer.</p>
+    ${!supported ? (navigator.brave
+      ? `<div class="tree" style="border-left:3px solid var(--red);color:var(--chalk);margin-top:0">Brave turns off folder access by default. To switch it on:<br>1. Go to <b>brave://flags/#file-system-access-api</b> (copy it into the address bar)<br>2. Set <b>File System Access API</b> to Enabled<br>3. Click Relaunch, then open Repped again</div>`
+      : `<p style="color:#ff8a80;margin-bottom:16px">This browser can't open workout folders. Open Repped in Chrome, Edge or Brave. Firefox and Safari aren't supported yet.</p>`) : ''}
+    ${remembered ? `<button class="btn red big" data-act="reconnect" style="width:100%;margin-bottom:10px">Open ${esc(remembered.name)}</button>` : ''}
+    <button class="btn ${remembered ? '' : 'red'} big" data-act="pick" style="width:100%" ${supported ? '' : 'disabled'}>${remembered ? 'Choose a different folder' : 'Choose your workouts folder'}</button>
+    <p class="dim" style="font-size:12.5px;margin:10px 0 0">Works in Chrome and Edge, and in Brave once folder access is switched on. Each browser remembers its own folder, so the first open in a new browser asks you to choose it again.</p>
+    <div class="tree">Pick an empty folder to start fresh, or an existing Repped folder to carry on. Inside it Repped keeps:<br>
+      <b>templates/</b> one file per workout, e.g. Cardio.json<br>
+      <b>history/</b> one file per finished workout<br>
+      <b>exercises.json</b>, <b>skills.json</b> and <b>settings.json</b></div>
+    ${S._connectError ? `<p style="color:#ff8a80">${esc(S._connectError)}</p>` : ''}
+  </div>`;
+}
+async function pickFolder(){
+  try {
+    const h = await window.showDirectoryPicker({id: 'repped', mode: 'readwrite'});
+    S._connectError = '';
+    await connectHandle(h);
+    if (!S.templates.length && !S.history.length) await offerStarters();
+    S.view = S.active ? 'editor' : 'workout';
+    if (S.active) S.ed = {mode: 'active', doc: S.active};
+    render(); openPending();
+  } catch (e) { if (e.name !== 'AbortError'){ S._connectError = 'Could not open that folder: ' + e.message; render(); } }
+}
+async function reconnect(){
+  const h = S.dir || S._remembered; if (!h) return pickFolder();
+  try {
+    if (h.requestPermission && (await h.requestPermission({mode: 'readwrite'})) !== 'granted') { toast('Permission not granted', true); return; }
+    await connectHandle(h);
+    S._connectError = '';
+    if (S.active){ S.view = 'editor'; S.ed = {mode: 'active', doc: S.active}; }
+    render(); toast('Folder connected'); openPending();
+  } catch (e) { S._connectError = `Couldn't open ${h.name}. If it's on a USB stick, plug it in and try again, or choose the folder again.`; S.connected = false; render(); }
+}
+async function offerStarters(){
+  const ok = await modal(`<h2>Empty folder</h2><p class="muted">Add starter templates for your Upper, Lower, Cardio and Mobility sessions? You can edit or delete them any time.</p>`,
+    [['Start blank', false, 'ghost'], ['Add starters', true, 'red']]);
+  if (ok) for (const t of starterTemplates()) await saveTemplate(t);
+}
+
+/* ---------- workout home ---------- */
+function workoutView(){
+  const weekStart = new Date(); weekStart.setHours(0,0,0,0); weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+  const thisWeek = S.history.filter(h => new Date(h.start) >= weekStart).length;
+  const cards = S.templates.map(t => {
+    const last = lastDone(t.id);
+    const list = t.exercises.slice(0, 6).map(e => `<li>${e.sets.length} × ${esc(exInfo(e.exerciseId, e).name)}</li>`).join('') + (t.exercises.length > 6 ? `<li class="dim">+${t.exercises.length - 6} more</li>` : '');
+    return `<div class="tcard" role="button" tabindex="0" data-act="tpl-open" data-id="${t.id}"><h3>${esc(t.name)}</h3><ul>${list || '<li class="dim">No exercises yet</li>'}</ul><span class="last">${last ? 'Last done ' + ago(last.start) : 'Not done yet'}</span></div>`;
+  }).join('');
+  return `<div class="page">
+    <div class="toprow"><div><h1>Workout</h1><p class="sub">${thisWeek} workout${thisWeek === 1 ? '' : 's'} so far this week</p></div></div>
+    ${S.active ? '' : `<div class="startbar"><div class="grow"><h3>Quick start</h3><p>Start with nothing and add exercises as you go.</p></div><button class="btn red big" data-act="start-empty">Start an empty workout</button></div>`}
+    ${missingStarters().length && !S.settings.hideStarterOffer ? `<div class="startbar" style="border-left-color:var(--blue);margin-top:-20px"><div class="grow"><h3>Add your ${andList(missingStarters().map(t => esc(t.name)))} template${missingStarters().length > 1 ? 's' : ''}</h3><p>Set up from your Strong routines. You can edit them after.</p></div><button class="btn ghost" data-act="starters-hide">Not now</button><button class="btn" data-act="starters-add">Add</button></div>` : ''}
+    <div class="sechead"><h2>Templates</h2><button class="btn" data-act="tpl-new">New template</button></div>
+    ${cards ? `<div class="tgrid">${cards}</div>` : `<div class="empty">No templates yet. A template is a workout you repeat, like Upper Body or Cardio.<br><button class="btn red" data-act="tpl-new">Create a template</button></div>`}
+  </div>`;
+}
+async function openTemplate(id){
+  const t = S.templates.find(x => x.id === id); if (!t) return;
+  const rows = t.exercises.map(e => {
+    const ex = exInfo(e.exerciseId, e), last = lastSetsFor(e.exerciseId);
+    return `<tr><td>${e.sets.length} × ${esc(ex.name)}</td><td class="dim" style="text-align:right">${last ? 'Last: ' + esc(last.map(s => setShort(ex.type, s)).join(', ')) : ''}</td></tr>`;
+  }).join('');
+  const r = await modal(`<h2>${esc(t.name)}</h2>${t.notes ? `<p class="muted" style="margin-bottom:8px">${esc(t.notes)}</p>` : ''}
+    <table style="width:100%;font-size:13.5px;border-collapse:collapse">${rows || '<tr><td class="muted">No exercises yet</td></tr>'}</table>`,
+    [['Delete', 'del', 'ghost danger'], ['Duplicate', 'dup', 'ghost'], ['Edit', 'edit', ''], ['Start workout', 'start', 'red']], true);
+  if (r === 'start') startWorkout(t);
+  else if (r === 'edit') { S.ed = {mode: 'template', doc: clone(t)}; go('editor'); }
+  else if (r === 'dup') { const c = clone(t); c.id = uid(); delete c._file; c.name = t.name + ' copy'; await saveTemplate(c); render(); toast('Template duplicated'); }
+  else if (r === 'del') { if (await confirmBox(`Delete the ${t.name} template?`, 'Your past workouts stay in History.', 'Delete')){ await deleteTemplate(t); render(); toast('Template deleted'); } }
+}
+async function startWorkout(t){
+  if (S.active){ if (!await confirmBox('A workout is already in progress', 'Discard it and start this one instead?', 'Discard and start')) return; await clearActive(); }
+  S.active = sessionFromTemplate(t);
+  S.active.templateStructure = t ? structureKey(t) : null;
+  saveActiveSoon();
+  S.ed = {mode: 'active', doc: S.active};
+  go('editor');
+}
+
+/* ---------- editor (active workout, template, past workout) ---------- */
+function editorView(){
+  const {mode, doc} = S.ed;
+  const title = mode === 'template' ? 'Template name' : 'Workout name';
+  let head = `<div class="edhead"><input class="wname" id="wname" value="${esc(doc.name)}" aria-label="${title}" placeholder="${title}">`;
+  if (mode === 'active') head += `<span class="clock num${doc.pausedAt ? ' paused' : ''}" id="elapsed">${fmtDur(wkElapsed(doc))}</span><button class="btn ghost pausebtn${doc.pausedAt ? ' on' : ''}" id="wkpause" data-act="wk-pause" title="Pause or resume the workout timer">${doc.pausedAt ? 'Resume' : 'Pause'}</button><button class="btn green" data-act="finish">Finish</button>`;
+  else if (mode === 'template') head += `<button class="btn ghost" data-act="ed-cancel">Cancel</button><button class="btn green" data-act="tpl-save">Save template</button>`;
+  else head += `<button class="btn ghost" data-act="ed-cancel">Cancel</button><button class="btn green" data-act="past-save">Save workout</button>`;
+  head += `</div>`;
+  let past = '';
+  if (mode === 'past'){
+    const d = new Date(doc.start), mins = doc.durationSec ? Math.round(doc.durationSec / 60) : 60;
+    past = `<div class="pastrow"><div class="field"><label for="pdate">Date</label><input type="date" class="inp" id="pdate" value="${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}"></div>
+      <div class="field"><label for="ptime">Start time</label><input type="time" class="inp" id="ptime" value="${pad2(d.getHours())}:${pad2(d.getMinutes())}"></div>
+      <div class="field"><label for="pdur">Length (minutes)</label><input type="number" min="1" class="inp" id="pdur" value="${mins}" style="width:120px"></div></div>`;
+  }
+  const notes = `<textarea class="inp wnotes" id="wnotes" rows="1" placeholder="${mode === 'template' ? 'Template notes' : 'Workout notes'}">${esc(doc.notes || '')}</textarea>`;
+  const blocks = doc.exercises.map((e, ei) => exerciseBlock(e, ei, mode)).join('');
+  const foot = `<div class="edfoot"><button class="btn" data-act="ex-add">Add exercises</button>${mode === 'active' ? '<button class="btn ghost danger" data-act="discard">Discard workout</button>' : ''}</div>`;
+  return `<div class="page" id="editor">${head}${past}${notes}${blocks || `<div class="empty" style="margin-top:16px">No exercises yet.</div>`}${foot}</div>`;
+}
+// Line up last time's sets with this one: warm-ups with warm-ups, working sets with working sets.
+function prevFor(e, si){
+  const prev = S.ed.prevCache?.[e.exerciseId]; if (!prev) return null;
+  const isW = s => (s.k || 'n') === 'w';
+  const w = isW(e.sets[si]);
+  const pos = e.sets.slice(0, si).filter(s => isW(s) === w).length;
+  return prev.filter(s => isW(s) === w)[pos] || null;
+}
+function placeholderFor(e, si, f){
+  const s = e.sets[si];
+  if (s.target && s.target[f] != null) return s.target[f];
+  const p = prevFor(e, si);
+  return p && p[f] != null ? p[f] : null;
+}
+function fmtField(f, v, type){ return v == null ? '' : f === 't' ? fmtDur(v) : f === 'd' || f === 'w' ? fmtNum(v) : String(v); }
+function exerciseBlock(e, ei, mode){
+  const cols = TYPES[e.type].cols;
+  if (!S.ed.prevCache) S.ed.prevCache = {};
+  if (!(e.exerciseId in S.ed.prevCache)) S.ed.prevCache[e.exerciseId] = lastSetsFor(e.exerciseId, S.ed.doc.id);
+  let n = 0;
+  const rows = e.sets.map((s, si) => {
+    const k = s.k || 'n'; const label = k === 'w' ? 'W' : k === 'd' ? 'D' : k === 'f' ? 'F' : String(++n);
+    const vals = mode === 'template' ? (s.target || {}) : s;
+    const p = prevFor(e, si);
+    const inputs = cols.map(([f]) => {
+      const ph = mode === 'template' ? '' : placeholderFor(e, si, f);
+      return `<td><input class="sin" data-f="${f}" inputmode="decimal" value="${esc(fmtField(f, vals[f]))}" placeholder="${esc(ph != null ? fmtField(f, ph) : (f === 't' ? 'm:ss' : ''))}" aria-label="${f}"></td>`;
+    }).join('');
+    const check = mode === 'template' ? '' : `<td><button class="chk" data-act="set-done" aria-label="Mark set done">✓</button></td>`;
+    return `<tr data-si="${si}" class="${s.done ? 'done' : ''}"><td><button class="kind ${k}" data-act="set-kind" title="Click to change: normal, warm-up, drop set, failure">${label}</button></td>
+      <td class="prev l" data-act="set-prev" title="${p ? 'Click to copy' : ''}">${p ? esc(setText(e.type, p)) : '<span class="dim">-</span>'}</td>${inputs}${check}<td><button class="sdel" data-act="set-del" aria-label="Delete set">✕</button></td></tr>`;
+  }).join('');
+  const heads = cols.map(([, l]) => `<th>${l}</th>`).join('');
+  const restLabel = e.rest ? fmtDur(e.rest) : 'off';
+  return `<div class="exb" data-ei="${ei}">
+    <div class="exh"><div class="exn" data-act="ex-detail">${esc(e.name)}<small>${esc(TYPES[e.type].label)}</small></div>
+      <button class="ibtn" data-act="ex-rest" title="Rest timer after each set">Rest ${restLabel}</button>
+      <button class="ibtn" data-act="ex-note">${e.notes ? 'Note' : 'Add note'}</button>
+      <button class="ibtn" data-act="ex-up" aria-label="Move up">↑</button><button class="ibtn" data-act="ex-down" aria-label="Move down">↓</button>
+      <button class="ibtn" data-act="ex-swap">Replace</button>
+      <button class="ibtn" data-act="ex-del" aria-label="Remove exercise">✕</button></div>
+    ${e.notes || e._showNote ? `<textarea class="inp exnote" data-f="exnote" rows="1" placeholder="Note for this exercise">${esc(e.notes)}</textarea>` : ''}
+    <table class="sets"><thead><tr><th>Set</th><th class="l">Previous</th>${heads}${mode === 'template' ? '' : '<th>✓</th>'}<th></th></tr></thead><tbody>${rows}</tbody></table>
+    <button class="addset" data-act="set-add">+ Add set</button>
+  </div>`;
+}
+function rerenderEditor(){ const sc = $('#main').scrollTop; render(); $('#main').scrollTop = sc; }
+function edChanged(){ if (S.ed?.mode === 'active') saveActiveSoon(); }
+function readField(f, raw, type){
+  if (raw.trim() === '') return null;
+  if (f === 't') return parseDur(raw, type === 'cardio');
+  if (f === 'r') { const n = parseInt(raw, 10); return isNaN(n) ? null : n; }
+  const n = parseFloat(raw.replace(',', '.')); return isNaN(n) ? null : n;
+}
+function toggleDone(e, si, tr){
+  const s = e.sets[si];
+  if (s.done){ s.done = false; tr.classList.remove('done'); edChanged(); return; }
+  const cols = TYPES[e.type].cols;
+  for (const [f] of cols){ if (s[f] == null){ const ph = placeholderFor(e, si, f); if (ph != null) s[f] = ph; } }
+  if (!cols.some(([f]) => s[f] != null)) { toast('Enter the set first'); tr.querySelector('.sin')?.focus(); return; }
+  s.done = true;
+  cols.forEach(([f]) => { const inp = tr.querySelector(`.sin[data-f="${f}"]`); if (inp) inp.value = fmtField(f, s[f]); });
+  tr.classList.add('done');
+  if (S.ed.mode === 'active' && e.rest > 0) startRest(e.rest);
+  edChanged();
+}
+async function editorClick(btn){
+  const act = btn.dataset.act, {doc, mode} = S.ed;
+  const exb = btn.closest('.exb'), ei = exb ? +exb.dataset.ei : -1, e = doc.exercises[ei];
+  const tr = btn.closest('tr'), si = tr ? +tr.dataset.si : -1;
+  switch (act){
+    case 'set-done': toggleDone(e, si, tr); break;
+    case 'set-kind': { const order = ['n','w','d','f']; const s = e.sets[si]; s.k = order[(order.indexOf(s.k || 'n') + 1) % 4]; edChanged(); rerenderEditor(); break; }
+    case 'set-prev': { const p = prevFor(e, si); if (!p) break; const s = e.sets[si];
+      if (mode === 'template'){ s.target = {}; for (const [f] of TYPES[e.type].cols) if (p[f] != null) s.target[f] = p[f]; }
+      else for (const [f] of TYPES[e.type].cols) if (p[f] != null) s[f] = p[f];
+      edChanged(); rerenderEditor(); break; }
+    case 'set-del': e.sets.splice(si, 1); edChanged(); rerenderEditor(); break;
+    case 'set-add': { const last = e.sets[e.sets.length - 1]; const ns = {k: last && last.k !== 'w' ? last.k : 'n'};
+      if (mode === 'template' && last?.target) ns.target = {...last.target};
+      e.sets.push(ns); edChanged(); rerenderEditor();
+      const rows = $(`.exb[data-ei="${ei}"]`).querySelectorAll('tbody tr'); rows[rows.length - 1]?.querySelector('.sin')?.focus(); break; }
+    case 'ex-del': if (e.sets.some(s => s.done) && !await confirmBox(`Remove ${e.name}?`, 'Its logged sets will be removed too.', 'Remove')) break;
+      doc.exercises.splice(ei, 1); edChanged(); rerenderEditor(); break;
+    case 'ex-up': if (ei > 0){ [doc.exercises[ei - 1], doc.exercises[ei]] = [doc.exercises[ei], doc.exercises[ei - 1]]; edChanged(); rerenderEditor(); } break;
+    case 'ex-down': if (ei < doc.exercises.length - 1){ [doc.exercises[ei + 1], doc.exercises[ei]] = [doc.exercises[ei], doc.exercises[ei + 1]]; edChanged(); rerenderEditor(); } break;
+    case 'ex-note': e._showNote = true; rerenderEditor(); $(`.exb[data-ei="${ei}"] .exnote`)?.focus(); break;
+    case 'ex-rest': { const v = await promptBox(`Rest after each ${e.name} set`, 'Minutes:seconds, e.g. 1:30. Use 0 to turn it off.', fmtDur(e.rest || 0));
+      if (v != null){ const sec = parseDur(v); e.rest = sec || 0; edChanged(); rerenderEditor(); } break; }
+    case 'ex-swap': { const picked = await pickExercises(false); if (picked?.length){ const ex = picked[0];
+      if (ex.type !== e.type) e.sets.forEach(s => { delete s.w; delete s.r; delete s.t; delete s.d; delete s.target; s.done = false; });
+      Object.assign(e, {exerciseId: ex.id, name: ex.name, type: ex.type}); edChanged(); rerenderEditor(); } break; }
+    case 'ex-detail': if (mode === 'active') go('exercise', e.exerciseId); break;
+    case 'ex-add': { const picked = await pickExercises(true); if (picked?.length){ for (const ex of picked) doc.exercises.push(picked.quick && picked.quick.has(ex.id) ? skillEntry(picked.quick.get(ex.id)) : newExerciseEntry(ex)); edChanged(); rerenderEditor();
+      $('#main').scrollTop = $('#main').scrollHeight; } break; }
+    case 'wk-pause': togglePause(); break;
+    case 'finish': finishWorkout(); break;
+    case 'discard': if (await confirmBox('Discard this workout?', 'Nothing from it will be saved.', 'Discard')){ await clearActive(); S.ed = null; go('workout'); toast('Workout discarded'); } break;
+    case 'tpl-save': saveTemplateFromEditor(); break;
+    case 'past-save': savePastFromEditor(); break;
+    case 'ed-cancel': S.ed = null; go(mode === 'past' ? 'history' : 'workout'); break;
+  }
+}
+function editorInput(el){
+  const {doc, mode} = S.ed;
+  if (el.id === 'wname'){ doc.name = el.value; edChanged(); return; }
+  if (el.id === 'wnotes'){ doc.notes = el.value; edChanged(); return; }
+  const exb = el.closest('.exb'); if (!exb) return;
+  const e = doc.exercises[+exb.dataset.ei];
+  if (el.dataset.f === 'exnote'){ e.notes = el.value; edChanged(); return; }
+  const tr = el.closest('tr'); if (!tr) return;
+  const s = e.sets[+tr.dataset.si], f = el.dataset.f, v = readField(f, el.value, e.type);
+  if (mode === 'template'){ s.target = s.target || {}; if (v == null) delete s.target[f]; else s.target[f] = v; if (!Object.keys(s.target).length) delete s.target; }
+  else { if (v == null) delete s[f]; else s[f] = v; }
+  edChanged();
+}
+function editorKey(ev){
+  const el = ev.target;
+  if (ev.key !== 'Enter' || !el.classList.contains('sin')) return;
+  ev.preventDefault();
+  const tr = el.closest('tr'), ins = [...tr.querySelectorAll('.sin')], i = ins.indexOf(el);
+  if (i < ins.length - 1) { ins[i + 1].focus(); ins[i + 1].select(); return; }
+  if (S.ed.mode !== 'template'){ const e = S.ed.doc.exercises[+el.closest('.exb').dataset.ei]; const si = +tr.dataset.si; if (!e.sets[si].done) toggleDone(e, si, tr); }
+  let next = tr.nextElementSibling;
+  if (!next){ const nb = el.closest('.exb').nextElementSibling; next = nb?.classList.contains('exb') ? nb.querySelector('tbody tr') : null; }
+  const ni = next?.querySelector('.sin'); if (ni){ ni.focus(); ni.select(); }
+}
+
+async function finishWorkout(){
+  const doc = S.active;
+  const unticked = doc.exercises.reduce((n, e) => n + e.sets.filter(s => !s.done && TYPES[e.type].cols.some(([f]) => s[f] != null)).length, 0);
+  let countUnticked = false;
+  if (unticked){
+    const r = await modal(`<h2>${unticked} set${unticked > 1 ? 's' : ''} not ticked</h2><p class="muted">Some sets have numbers in them but weren't ticked off.</p>`,
+      [['Keep editing', null, 'ghost'], ['Leave them out', 'drop', ''], ['Count them', 'count', 'green']]);
+    if (!r) return; countUnticked = r === 'count';
+  }
+  const out = clone(doc);
+  out.exercises = out.exercises.map(e => ({exerciseId: e.exerciseId, name: e.name, type: e.type, rest: e.rest, notes: e.notes || '',
+    sets: e.sets.filter(s => s.done || (countUnticked && TYPES[e.type].cols.some(([f]) => s[f] != null)))
+      .map(s => { const o = {k: s.k || 'n'}; for (const f of ['w','r','t','d']) if (s[f] != null) o[f] = s[f]; return o; })}))
+    .filter(e => e.sets.length);
+  if (!out.exercises.length){ toast('Tick off at least one set before finishing'); return; }
+  out.end = new Date().toISOString();
+  out.durationSec = Math.round(wkElapsed(doc));
+  delete out.pausedAt; delete out.pausedMs;
+  delete out.templateStructure;
+  // Offer to update the template if the shape changed
+  const t = S.templates.find(x => x.id === doc.templateId);
+  let updateTpl = false;
+  if (t && structureKey(doc) !== structureKey(t)){
+    updateTpl = await modal(`<h2>Update the ${esc(t.name)} template?</h2><p class="muted">You changed the exercises or sets. Save this layout as the new template?</p>`,
+      [['Keep template as it was', false, 'ghost'], ['Update template', true, 'red']]);
+  }
+  try { await saveSession(out); } catch (e) { return; }
+  if (updateTpl){
+    const nt = clone(t);
+    nt.exercises = doc.exercises.map(e => { const old = t.exercises.find(x => x.exerciseId === e.exerciseId);
+      return {exerciseId: e.exerciseId, name: e.name, type: e.type, rest: e.rest, notes: e.notes || '', sets: e.sets.map((s, i) => ({k: s.k || 'n', target: old?.sets[i]?.target}))}; });
+    nt._file = t._file; await saveTemplate(nt);
+  }
+  await clearActive(); S.ed = null;
+  const prs = findPRs(out), vol = volume(out), sets = out.exercises.reduce((n, e) => n + e.sets.length, 0);
+  go('history');
+  await modal(`<h2>Workout saved</h2><p class="muted">${esc(out.name)}, ${fmtDateLong(out.start)}</p>
+    <div class="stats" style="margin:14px 0 6px"><div class="stat"><b class="num">${fmtDur(out.durationSec)}</b><span>Time</span></div><div class="stat"><b class="num">${sets}</b><span>Sets</span></div>${vol ? `<div class="stat"><b class="num">${Math.round(vol).toLocaleString('en-GB')} kg</b><span>Volume</span></div>` : ''}</div>
+    ${prs.length ? `<h3 style="margin-top:10px;color:var(--yellow)">New personal records</h3><ul style="margin:6px 0 0;padding-left:18px">${prs.map(p => `<li><b>${esc(p.exercise)}</b>: ${esc(p.label)}, ${esc(p.value)}</li>`).join('')}</ul>` : ''}`,
+    [['Done', true, 'red']]);
+}
+function volume(s){ return s.exercises.reduce((v, e) => v + (e.type === 'wr' || e.type === 'bw' ? e.sets.reduce((a, x) => a + (x.w || 0) * (x.r || 0), 0) : 0), 0); }
+async function saveTemplateFromEditor(){
+  const d = S.ed.doc; d.name = (d.name || '').trim();
+  if (!d.name){ toast('Give the template a name'); $('#wname').focus(); return; }
+  const t = {id: d.id || uid(), kind: 'template', name: d.name, notes: d.notes || '', order: d.order, _file: d._file,
+    exercises: d.exercises.map(e => ({exerciseId: e.exerciseId, name: e.name, type: e.type, rest: e.rest ?? S.settings.defaultRest, notes: e.notes || '',
+      sets: e.sets.map(s => { const o = {k: s.k || 'n'}; if (s.target && Object.keys(s.target).length) o.target = s.target; return o; })}))};
+  if (t.order == null) t.order = S.templates.length + 1;
+  try { await saveTemplate(t); } catch (e) { return; }
+  S.ed = null; go('workout'); toast('Template saved');
+}
+async function savePastFromEditor(){
+  const d = S.ed.doc;
+  const date = $('#pdate').value, time = $('#ptime').value || '12:00', mins = parseFloat($('#pdur').value) || 60;
+  if (!date){ toast('Pick a date'); return; }
+  const start = new Date(`${date}T${time}`);
+  const out = {id: d.id || uid(), kind: 'session', name: (d.name || 'Workout').trim(), templateId: d.templateId || null, notes: d.notes || '', _file: d._file,
+    start: start.toISOString(), end: new Date(+start + mins * 60000).toISOString(), durationSec: Math.round(mins * 60), logged: d.logged || 'manual',
+    exercises: d.exercises.map(e => ({exerciseId: e.exerciseId, name: e.name, type: e.type, rest: e.rest, notes: e.notes || '',
+      sets: e.sets.filter(s => s.done || TYPES[e.type].cols.some(([f]) => s[f] != null)).map(s => { const o = {k: s.k || 'n'}; for (const f of ['w','r','t','d']) if (s[f] != null) o[f] = s[f]; return o; })}))
+      .filter(e => e.sets.length)};
+  if (!out.exercises.length){ toast('Fill in at least one set'); return; }
+  // If the date changed on an existing file, write a new file name for it
+  if (out._file){ const old = S.history.find(h => h.id === out.id); if (old && old.start !== out.start){ await removeFile(out._file); delete out._file; } }
+  try { await saveSession(out); } catch (e) { return; }
+  S.ed = null; go('history'); toast('Workout saved');
+}
+
+/* ---------- exercise picker ---------- */
+function pickExercises(multi){
+  return new Promise(resolve => {
+    const sel = new Set(), quick = new Map(); let q = '';
+    // Quick add: the skills you've unlocked or are working on, in skill tree order (branch by branch, then down the tree)
+    const st = skillState(), qsk = [];
+    if (multi) for (const [br] of BRANCHES){ const T = layoutBranch(br); T.rows.flat().forEach(n => { const x = st.get(n.id); if (!T.ghosts.has(n.id) && (x.level === 1 || x.level === 2)) qsk.push(n); }); }
+    let cat = qsk.length ? 'Quick add' : 'All';
+    const draw = () => {
+      $('#pchips').innerHTML = [...(qsk.length ? ['Quick add'] : []), 'All', ...CATS].map(c => `<button class="chip ${c === cat ? 'on' : ''}" data-c="${c}">${c}</button>`).join('');
+      $('#padd').textContent = multi ? `Add ${sel.size || ''}`.trim() : 'Choose';
+      $('#padd').disabled = !sel.size;
+      if (cat === 'Quick add'){
+        let lastB = '';
+        const list = qsk.filter(sk => (sk.name + ' ' + exInfo(sk.ex).name).toLowerCase().includes(q.toLowerCase()));
+        $('#plist').innerHTML = list.map(sk => { const x = st.get(sk.id), head = sk.branch !== lastB ? `<div class="qbr">${esc(BRANCHES.find(b => b[0] === sk.branch)[1])}</div>` : ''; lastB = sk.branch;
+          return head + `<label class="${sel.has(sk.ex) && quick.get(sk.ex) === sk ? 'sel' : ''}"><input type="checkbox" name="pk" value="${esc(sk.ex)}" data-sk="${esc(sk.id)}" ${sel.has(sk.ex) && quick.get(sk.ex) === sk ? 'checked' : ''}><span class="qsk"><span class="g g-${sk.grade}">${gradeLabel(sk.grade)}</span><span class="n">${esc(sk.name)}</span><small class="skst l${x.level}">${SKLEVELS[x.level]}</small></span></label>`; }).join('')
+          || '<p class="muted" style="padding:8px">No match.</p>';
+        return;
+      }
+      const list = allEx().filter(e => (cat === 'All' || e.cat === cat) && e.name.toLowerCase().includes(q.toLowerCase()));
+      $('#plist').innerHTML = list.map(e => `<label class="${sel.has(e.id) ? 'sel' : ''}"><input type="${multi ? 'checkbox' : 'radio'}" name="pk" value="${esc(e.id)}" ${sel.has(e.id) ? 'checked' : ''}>${esc(e.name)}<small>${esc(e.cat)}</small></label>`).join('') || '<p class="muted" style="padding:8px">No match. Create it with New exercise.</p>';
+    };
+    const m = $('#modal');
+    m.innerHTML = `<div class="mbox wide"><h2>${multi ? 'Add exercises' : 'Replace exercise'}</h2>
+      <div class="row"><input class="inp grow" id="psearch" placeholder="Search exercises" autocomplete="off"><button class="btn" id="pnew">New exercise</button></div>
+      <div class="chips" id="pchips" style="margin:10px 0 0"></div><div class="plist" id="plist"></div>
+      <div class="mfoot"><button class="btn ghost" id="pcancel">Cancel</button><button class="btn red" id="padd">Add</button></div></div>`;
+    m.classList.add('on');
+    const close = v => { m.classList.remove('on'); m.innerHTML = ''; resolve(v); };
+    $('#psearch').oninput = ev => { q = ev.target.value; draw(); };
+    $('#pchips').onclick = ev => { const c = ev.target.closest('.chip'); if (c){ cat = c.dataset.c; draw(); } };
+    $('#plist').onchange = ev => { const id = ev.target.value; if (!multi) sel.clear(); if (ev.target.checked) sel.add(id); else sel.delete(id);
+      if (ev.target.dataset.sk && ev.target.checked) quick.set(id, SKBY.get(ev.target.dataset.sk)); else quick.delete(id);
+      $('#plist').querySelectorAll('label').forEach(l => l.classList.toggle('sel', sel.has(l.querySelector('input').value)));
+      $('#padd').textContent = multi ? `Add ${sel.size || ''}`.trim() : 'Choose'; $('#padd').disabled = !sel.size; };
+    $('#plist').ondblclick = ev => { const l = ev.target.closest('label'); if (l){ const id = l.querySelector('input').value; sel.add(id); const sk = l.querySelector('input').dataset.sk; if (sk) quick.set(id, SKBY.get(sk)); const out = [...sel].map(i => EXI.get(i)); out.quick = quick; close(out); } };
+    $('#pcancel').onclick = () => close(null);
+    $('#padd').onclick = () => { const out = [...sel].map(i => EXI.get(i)); out.quick = quick; close(out); };
+    $('#pnew').onclick = async () => { m.classList.remove('on');
+      const ex = await editExerciseModal(null, q); if (ex){ close([ex]); } else { pickExercises(multi).then(resolve); } };
+    m.onclick = ev => { if (ev.target === m) close(null); };
+    draw(); $('#psearch').focus();
+  });
+}
+async function editExerciseModal(ex, presetName){
+  const isNew = !ex; ex = ex ? {...ex} : {id: 'c:' + uid(), name: presetName || '', cat: 'Other', type: 'wr'};
+  const r = await modal(`<h2>${isNew ? 'New exercise' : 'Edit exercise'}</h2>
+    <div class="field"><label for="xn">Name</label><input class="inp" id="xn" value="${esc(ex.name)}"></div>
+    <div class="row"><div class="field grow"><label for="xc">Body part</label><select class="inp" id="xc">${CATS.map(c => `<option ${c === ex.cat ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+    <div class="field grow"><label for="xt">What you log</label><select class="inp" id="xt" ${isNew || !exUsed(ex.id) ? '' : 'disabled'}>${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${k === ex.type ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div></div>`,
+    [['Cancel', null, 'ghost'], [isNew ? 'Create exercise' : 'Save', 'ok', 'red']], false, () => { const n = $('#xn').value.trim(); if (!n){ toast('Give it a name'); return false; }
+      ex.name = n; ex.cat = $('#xc').value; ex.type = $('#xt').value; return true; }, '#xn');
+  if (r !== 'ok') return null;
+  const i = S.custom.findIndex(c => c.id === ex.id);
+  if (i >= 0) S.custom[i] = ex; else S.custom.push(ex);
+  await saveCustom(); toast(isNew ? 'Exercise created' : 'Exercise saved');
+  return EXI.get(ex.id);
+}
+const exUsed = id => S.history.some(h => h.exercises.some(e => e.exerciseId === id)) || S.templates.some(t => t.exercises.some(e => e.exerciseId === id));
+
+/* ---------- history ---------- */
+function historyView(){
+  let html = `<div class="page"><div class="toprow"><div><h1>History</h1><p class="sub">${S.history.length} workout${S.history.length === 1 ? '' : 's'} logged</p></div>
+    <button class="btn" data-act="log-past">Log a past workout</button></div>`;
+  if (!S.history.length) return html + `<div class="empty">Finished workouts appear here. Back from a trip with paper sheets? Use Log a past workout to type them in.</div></div>`;
+  let month = '';
+  for (const h of S.history){
+    const m = new Date(h.start).toLocaleDateString('en-GB', {month: 'long', year: 'numeric'});
+    if (m !== month){ month = m; html += `<h3 class="month">${m}</h3>`; }
+    const vol = volume(h);
+    const prCount = findPRs(h).length;
+    const rows = h.exercises.map(e => { const best = bestSet(e); return `<tr><td>${e.sets.length} × ${esc(e.name)}</td><td>${best ? esc(setText(e.type, best)) : ''}</td></tr>`; }).join('');
+    html += `<div class="hcard" role="button" tabindex="0" data-act="hist-open" data-id="${h.id}"><div class="top"><h3>${esc(h.name)}</h3>${prCount ? `<span class="pr">${prCount} PR${prCount > 1 ? 's' : ''}</span>` : ''}</div>
+      <div class="meta"><span>${fmtDateLong(h.start)}${h.logged ? '' : ', ' + fmtTime(h.start)}</span><span class="num">${fmtDur(h.durationSec)}</span>${vol ? `<span class="num">${Math.round(vol).toLocaleString('en-GB')} kg</span>` : ''}${h.logged ? '<span>Logged later</span>' : ''}</div>
+      <table>${rows}</table></div>`;
+  }
+  return html + '</div>';
+}
+function bestSet(e){
+  let best = null, bv = -1;
+  for (const s of e.sets){ const v = topMetric(e.type, [s]) || (s.r || 0); if (v > bv){ bv = v; best = s; } }
+  return best;
+}
+async function openSession(id){
+  const h = S.history.find(x => x.id === id); if (!h) return;
+  const body = h.exercises.map(e => {
+    let n = 0;
+    return `<h3 style="margin:14px 0 4px">${esc(e.name)}</h3>${e.notes ? `<p class="muted" style="font-size:13px">${esc(e.notes)}</p>` : ''}<table style="font-size:13.5px">${e.sets.map(s => `<tr><td style="width:34px;color:var(--dim);font-family:var(--head)">${s.k === 'w' ? 'W' : s.k === 'd' ? 'D' : s.k === 'f' ? 'F' : ++n}</td><td class="num">${esc(setText(e.type, s))}</td></tr>`).join('')}</table>`;
+  }).join('');
+  const r = await modal(`<h2>${esc(h.name)}</h2><p class="muted">${fmtDateLong(h.start)}${h.logged ? '' : ', ' + fmtTime(h.start)}, ${fmtDur(h.durationSec)}</p>${h.notes ? `<p style="margin-top:8px">${esc(h.notes)}</p>` : ''}${body}`,
+    [['Delete', 'del', 'ghost danger'], ['Save as template', 'tpl', 'ghost'], ['Edit', 'edit', ''], ['Close', null, 'red']], true);
+  if (r === 'edit'){ const d = clone(h); d.exercises.forEach(e => { e.uid = uid(); e.sets.forEach(s => s.done = true); }); S.ed = {mode: 'past', doc: d}; go('editor'); }
+  else if (r === 'tpl'){ const name = await promptBox('Template name', '', h.name); if (name){ const t = {id: uid(), name, notes: '', order: S.templates.length + 1,
+      exercises: h.exercises.map(e => ({exerciseId: e.exerciseId, name: e.name, type: e.type, rest: e.rest ?? S.settings.defaultRest, notes: e.notes || '', sets: e.sets.map(s => ({k: s.k || 'n'}))}))};
+      await saveTemplate(t); toast('Template saved'); } }
+  else if (r === 'del'){ if (await confirmBox('Delete this workout?', `${h.name}, ${fmtDateLong(h.start)}. This deletes its file from the folder.`, 'Delete')){ await deleteSession(h); render(); toast('Workout deleted'); } }
+}
+async function logPast(){
+  const opts = [['Blank', ''], ...S.templates.map(t => [t.name, t.id])];
+  const r = await modal(`<h2>Log a past workout</h2><p class="muted" style="margin-bottom:12px">For workouts done away from the computer, like the ones on your printed sheets.</p>
+    <div class="field"><label for="lpt">Start from</label><select class="inp" id="lpt">${opts.map(([n, v]) => `<option value="${v}">${esc(n)}</option>`).join('')}</select></div>`,
+    [['Cancel', null, 'ghost'], ['Continue', 'ok', 'red']], false, () => { S._lpt = $('#lpt').value; return true; });
+  if (r !== 'ok') return;
+  const t = S.templates.find(x => x.id === S._lpt);
+  const d = sessionFromTemplate(t || null); d.logged = 'manual';
+  const y = new Date(); y.setDate(y.getDate() - 1); y.setHours(9, 0, 0, 0); d.start = y.toISOString(); d.durationSec = 3600;
+  S.ed = {mode: 'past', doc: d}; go('editor');
+}
+
+/* ---------- exercises ---------- */
+function exercisesView(){
+  const q = S.exSearch.toLowerCase();
+  const counts = {}; for (const h of S.history) for (const e of h.exercises) counts[e.exerciseId] = (counts[e.exerciseId] || 0) + 1;
+  const list = allEx().filter(e => (S.exFilter === 'All' || e.cat === S.exFilter || (S.exFilter === 'Calisthenics' && SK_FOR_EX.has(e.id))) && e.name.toLowerCase().includes(q));
+  if (S.exFilter === 'Calisthenics') list.sort((a, b) => GRADES.indexOf(SK_FOR_EX.get(a.id).grade) - GRADES.indexOf(SK_FOR_EX.get(b.id).grade) || a.name.localeCompare(b.name));
+  let body = '';
+  for (const c of S.exFilter === 'Calisthenics' ? ['Calisthenics'] : CATS){
+    const items = c === 'Calisthenics' ? list : list.filter(e => e.cat === c); if (!items.length) continue;
+    body += `<h3 class="cat">${c}</h3>` + items.map(e => `<button class="exrow" data-act="ex-open" data-id="${esc(e.id)}">${SK_FOR_EX.has(e.id) ? `<span class="g g-${SK_FOR_EX.get(e.id).grade}" title="Skill tree grade">${SK_FOR_EX.get(e.id).grade === 'Scalable' ? '∞' : SK_FOR_EX.get(e.id).grade}</span>` : ''}<span class="n">${esc(e.name)}<small>${esc(TYPES[e.type].label)}${e.builtin ? '' : ', your exercise'}</small></span><span class="dim num">${counts[e.id] ? counts[e.id] + ' time' + (counts[e.id] > 1 ? 's' : '') : ''}</span></button>`).join('');
+  }
+  return `<div class="page"><div class="toprow"><div><h1>Exercises</h1><p class="sub">${allEx().length} exercises, ${S.custom.length} of them yours</p></div><button class="btn" data-act="exn-new">New exercise</button></div>
+    <input class="inp" id="exsearch" placeholder="Search exercises" value="${esc(S.exSearch)}" autocomplete="off">
+    <div class="chips">${['All', 'Calisthenics', ...CATS].map(c => `<button class="chip ${c === S.exFilter ? 'on' : ''}" data-act="ex-filter" data-c="${c}">${c}</button>`).join('')}</div>
+    ${body || '<p class="muted">No exercises match.</p>'}</div>`;
+}
+function exerciseDetailView(id){
+  const ex = exInfo(id);
+  const sessions = S.history.filter(h => h.exercises.some(e => e.exerciseId === id)).map(h => ({h, e: h.exercises.find(e => e.exerciseId === id)}));
+  const all = sessions.flatMap(x => x.e.sets);
+  const stats = [];
+  stats.push([sessions.length, 'Workouts']);
+  if (ex.type === 'wr'){
+    stats.push([`${fmtKg(Math.max(0, ...all.map(s => s.w || 0)))} kg`, 'Heaviest weight']);
+    stats.push([`${fmtKg(Math.round(Math.max(0, ...all.map(s => e1rm(s.w, s.r))) * 10) / 10)} kg`, 'Best estimated 1RM']);
+    stats.push([`${Math.round(all.reduce((a, s) => a + (s.w || 0) * (s.r || 0), 0)).toLocaleString('en-GB')} kg`, 'Total volume']);
+  } else if (ex.type === 'bw' || ex.type === 'reps'){
+    stats.push([Math.max(0, ...all.map(s => s.r || 0)), 'Most reps in a set']);
+    if (ex.type === 'bw') stats.push([`+${fmtKg(Math.max(0, ...all.map(s => s.w || 0)))} kg`, 'Most added weight']);
+    stats.push([all.reduce((a, s) => a + (s.r || 0), 0), 'Total reps']);
+  } else if (ex.type === 'time'){
+    stats.push([fmtDur(Math.max(0, ...all.map(s => s.t || 0))), 'Longest set']);
+    stats.push([fmtDur(all.reduce((a, s) => a + (s.t || 0), 0)), 'Total time']);
+  } else {
+    stats.push([`${fmtNum(Math.max(0, ...all.map(s => s.d || 0)))} km`, 'Longest distance']);
+    stats.push([`${fmtNum(all.reduce((a, s) => a + (s.d || 0), 0))} km`, 'Total distance']);
+  }
+  const pts = sessions.slice().reverse().map(x => ({t: new Date(x.h.start), v: topMetric(ex.type, x.e.sets)})).filter(p => p.v > 0);
+  const recent = sessions.slice(0, 12).map(x => `<div class="hcard" style="cursor:default"><div class="top"><h3>${fmtDateShort(x.h.start)}</h3><span class="muted" style="font-size:12.5px">${esc(x.h.name)}</span></div>
+    <p class="muted num" style="margin-top:4px">${x.e.sets.map(s => esc(setText(ex.type, s))).join(', ')}</p></div>`).join('');
+  return `<div class="page"><button class="btn ghost" data-act="back-ex" style="margin:0 0 10px -10px">Back</button>
+    <div class="toprow"><div><h1>${esc(ex.name)}</h1><p class="sub">${esc(ex.cat)}, ${esc(TYPES[ex.type].label.toLowerCase())}</p></div>
+    ${ex.builtin ? '' : `<div class="row"><button class="btn ghost danger" data-act="exn-del" data-id="${esc(ex.id)}">Delete</button><button class="btn" data-act="exn-edit" data-id="${esc(ex.id)}">Edit</button></div>`}</div>
+    ${SK_FOR_EX.has(id) ? skillStrip(SK_FOR_EX.get(id)) : ''}
+    ${sessions.length ? `<div class="stats">${stats.map(([v, l]) => `<div class="stat"><b class="num">${v}</b><span>${l}</span></div>`).join('')}</div>
+    ${pts.length > 1 ? `<div class="chart"><p class="muted" style="font-size:12.5px;margin-bottom:6px">${metricLabel[ex.type]} per workout</p>${chartSVG(pts, ex.type)}</div>` : ''}
+    <h2 style="margin:6px 0 10px">Recent</h2>${recent}` : `<div class="empty">You haven't logged ${esc(ex.name)} yet.</div>`}</div>`;
+}
+function chartSVG(pts, type){
+  const W = 640, H = 180, P = {l: 44, r: 12, t: 10, b: 24};
+  const vs = pts.map(p => p.v), lo = Math.min(...vs), hi = Math.max(...vs), span = hi - lo || hi || 1;
+  const y0 = Math.max(0, lo - span * .15), y1 = hi + span * .15;
+  const t0 = +pts[0].t, t1 = +pts[pts.length - 1].t || t0 + 1;
+  const X = t => P.l + (W - P.l - P.r) * ((+t - t0) / ((t1 - t0) || 1)), Y = v => P.t + (H - P.t - P.b) * (1 - (v - y0) / ((y1 - y0) || 1));
+  const fmt = v => type === 'time' ? fmtDur(v) : fmtNum(Math.round(v * 10) / 10);
+  const ticks = [y0, (y0 + y1) / 2, y1];
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${X(p.t).toFixed(1)},${Y(p.v).toFixed(1)}`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Progress chart">
+    ${ticks.map(v => `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#353c46"/><text x="${P.l - 6}" y="${Y(v) + 4}" fill="#6b7380" font-size="11" text-anchor="end">${fmt(v)}</text>`).join('')}
+    <text x="${P.l}" y="${H - 6}" fill="#6b7380" font-size="11">${fmtDateShort(pts[0].t)}</text><text x="${W - P.r}" y="${H - 6}" fill="#6b7380" font-size="11" text-anchor="end">${fmtDateShort(pts[pts.length - 1].t)}</text>
+    <path d="${line}" fill="none" stroke="#3f7fd9" stroke-width="2.2" vector-effect="non-scaling-stroke"/>
+    ${pts.map(p => `<circle cx="${X(p.t)}" cy="${Y(p.v)}" r="3.2" fill="#ecebe6"/>`).join('')}</svg>`;
+}
+
+/* ---------- skill tree ---------- */
+const GI = g => GRADES.indexOf(g);
+// your best set of each skill's exercise, from History (and the workout in progress)
+function skillBests(){
+  const best = new Map();
+  const add = (exId, s) => { if (!s) return; const b = best.get(exId) || {r: 0, t: 0}; b.r = Math.max(b.r, s.r || 0); b.t = Math.max(b.t, s.t || 0); best.set(exId, b); };
+  for (const h of S.history) for (const e of h.exercises) for (const s of e.sets) add(e.exerciseId, s);
+  if (S.active) for (const e of S.active.exercises) for (const s of e.sets) if (s.done) add(e.exerciseId, s);
+  return best;
+}
+/* What a skill needs to be unlocked, in progress and mastered. It goes by grade (an easy skill needs many reps
+   or a long hold, an elite one only a few), and some skills have their own targets. */
+const TARGET_REPS = {F: [5, 10, 20], D: [3, 8, 15], C: [2, 5, 10], B: [1, 3, 8], A: [1, 3, 6], S: [1, 2, 4], SS: [1, 2, 3], Scalable: [1, 3, 6]};
+const TARGET_SECS = {F: [10, 30, 60], D: [5, 15, 30], C: [3, 10, 20], B: [2, 6, 15], A: [2, 5, 12], S: [1, 3, 8], SS: [1, 3, 5], Scalable: [2, 6, 12]};
+const TARGET_OWN = {
+  'Deadhang': [20, 40, 60], 'Active Hang': [10, 20, 40], 'Wall Sit': [30, 60, 120], 'Plank': [30, 60, 120], 'Side Plank': [20, 40, 60],
+  'Hollow Body Hold': [15, 30, 60], 'Assisted Handstand': [15, 30, 60], 'Handstand': [5, 15, 30], 'L-sit': [5, 10, 20], 'Crow Pose': [5, 15, 30],
+  'Frog Stand': [5, 15, 30], 'Ring Support Hold': [10, 20, 30], 'Elbow Lever': [5, 10, 20], 'German Hang': [10, 20, 30], 'Planche Lean': [5, 15, 30],
+  'Tuck FL': [3, 8, 15], 'Bodyweight Squat': [10, 20, 30], 'Push-up': [5, 15, 30], 'Assisted Push-up': [5, 10, 20], 'Inverted Row': [5, 10, 20],
+  'Pull-up': [1, 5, 10], 'Chin-up': [1, 5, 10], 'Sit-up': [10, 20, 30], 'Glute Bridge': [10, 20, 30], 'Split Squat': [5, 10, 20], 'Dip': [3, 8, 15],
+  'Pistol Squat': [1, 3, 5], 'Muscle-Up': [1, 3, 5], 'HSPU': [1, 3, 5], 'Nordic Curl': [1, 3, 5],
+};
+const skillHold = sk => exInfo(sk.ex).type === 'time';
+const targetsOf = sk => TARGET_OWN[sk.name] || (skillHold(sk) ? TARGET_SECS : TARGET_REPS)[sk.grade] || [1, 3, 6];
+const targetText = (sk, n) => skillHold(sk) ? n + ' s' : n + ' rep' + (n === 1 ? '' : 's');
+function autoLevel(sk, bests){
+  const b = bests.get(sk.ex); if (!b) return 0;
+  const v = skillHold(sk) ? b.t : b.r, [u, p, m] = targetsOf(sk);
+  return v >= m ? 3 : v >= p ? 2 : v >= u ? 1 : 0;
+}
+function skillState(bests){
+  bests = bests || skillBests();
+  const st = new Map();
+  for (const sk of SKILLS){
+    const manual = S.skills.status[sk.id], auto = autoLevel(sk, bests);
+    st.set(sk.id, {auto, manual, level: manual != null ? manual : auto});
+  }
+  // a mastered skill means everything before it is mastered too
+  const up = id => { for (const r of SKBY.get(id).req){ const y = st.get(r); if (y.level < 3 && y.manual == null){ y.level = 3; y.implied = true; } up(r); } };
+  for (const sk of SKILLS) if (st.get(sk.id).level === 3 && !st.get(sk.id).implied) up(sk.id);
+  for (const sk of SKILLS){ const x = st.get(sk.id); x.ready = sk.req.every(r => st.get(r).level >= 3); x.next = x.level === 0 && x.ready; }
+  return st;
+}
+const bestText = (sk, bests) => { const b = bests.get(sk.ex); if (!b) return ''; return exInfo(sk.ex).type === 'time' ? (b.t ? fmtDur(b.t) + ' hold' : '') : (b.r ? b.r + ' rep' + (b.r > 1 ? 's' : '') : ''); };
+const gradeLabel = g => g === 'Scalable' ? '∞' : g;
+
+function layoutBranch(branch){
+  const own = SKILLS.filter(sk => sk.branch === branch), ids = new Set(own.map(sk => sk.id));
+  const ghosts = [...new Set(own.flatMap(sk => sk.req).filter(r => !ids.has(r)))].map(r => SKBY.get(r));
+  const nodes = [...own, ...ghosts], inSet = new Set(nodes.map(n => n.id));
+  const sub = new Map();
+  const L = n => { if (sub.has(n.id)) return sub.get(n.id); sub.set(n.id, 0);
+    let v = 0; if (ids.has(n.id)) for (const r of n.req) if (inSet.has(r)){ const p = SKBY.get(r); if (GI(p.grade) === GI(n.grade)) v = Math.max(v, L(p) + 1); }
+    sub.set(n.id, v); return v; };
+  nodes.forEach(L);
+  const key = n => GI(n.grade) * 10 + sub.get(n.id);
+  const keys = [...new Set(nodes.map(key))].sort((a, b) => a - b);
+  const rows = keys.map(k => nodes.filter(n => key(n) === k));
+  const COL = 180, ROW = 92, LEFT = 70, maxN = Math.max(...rows.map(r => r.length));
+  const pos = new Map();
+  rows.forEach((row, ri) => {
+    const order = nodes.indexOf.bind(nodes);
+    const bary = n => { const xs = n.req.filter(r => pos.has(r)).map(r => pos.get(r).x); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 1e6 + order(n); };
+    row.sort((a, b) => bary(a) - bary(b));
+    row.forEach((n, i) => pos.set(n.id, {x: LEFT + (maxN - row.length) * COL / 2 + i * COL, y: 14 + ri * ROW}));
+  });
+  return {nodes, ghosts: new Set(ghosts.map(g => g.id)), pos, rows, keys, width: LEFT + maxN * COL + 10, height: 14 + rows.length * ROW};
+}
+function skillNode(sk, st, ghost, p){
+  const x = st.get(sk.id);
+  const cls = `sk st${x.level}${x.next && !ghost ? ' next' : ''}${!x.ready && x.level === 0 && !ghost ? ' far' : ''}${ghost ? ' ghost' : ''}`;
+  return `<button class="${cls}" style="left:${p.x}px;top:${p.y}px" data-act="sk-open" data-id="${sk.id}" title="${esc(sk.name)}: ${SKLEVELS[x.level]}"><span class="t"><span class="g g-${sk.grade}">${gradeLabel(sk.grade)}</span><b>${esc(sk.name)}</b></span>
+    <small>${ghost ? esc(BRANCHES.find(b => b[0] === sk.branch)[1]) + ' branch' : esc(sk.time) + (sk.iso ? ', hold' : ', reps')}</small><span class="pips"><i></i><i></i><i></i></span></button>`;
+}
+function skillsView(){
+  const bests = skillBests(), st = skillState(bests);
+  const lv = sk => st.get(sk.id).level;
+  const mastered = SKILLS.filter(sk => lv(sk) === 3), going = SKILLS.filter(sk => lv(sk) === 1 || lv(sk) === 2);
+  const pts = Math.round(SKILLS.reduce((a, sk) => a + GRADE_PTS[sk.grade] * lv(sk) / 3, 0));
+  const top = mastered.filter(sk => sk.grade !== 'Scalable').sort((a, b) => GI(b.grade) - GI(a.grade))[0];
+  const nextUp = SKILLS.filter(sk => st.get(sk.id).next).sort((a, b) => GI(a.grade) - GI(b.grade));
+  const b = S.skBranch;
+  let body;
+  const narrow = window.matchMedia('(max-width:760px)').matches;
+  if (b === 'ranked' || narrow){
+    body = GRADES.map(g => { const list = SKILLS.filter(sk => sk.grade === g && (b === 'ranked' || sk.branch === b)); if (!list.length) return '';
+      return `<h3 class="cat"><span class="g g-${g}">${gradeLabel(g)}</span> ${g === 'Scalable' ? 'Scalable' : 'Grade ' + g}</h3><div class="skgrid">${list.map(sk => { const x = st.get(sk.id);
+        return `<button class="skcard" data-act="sk-open" data-id="${sk.id}"><span class="n">${esc(sk.name)}<small>${esc(BRANCHES.find(r => r[0] === sk.branch)[1])}, ${esc(sk.time)}</small></span><span class="skst l${x.level}">${x.next ? 'Next up' : SKLEVELS[x.level]}</span></button>`; }).join('')}</div>`; }).join('');
+  } else {
+    const T = layoutBranch(b);
+    const edges = T.nodes.filter(n => !T.ghosts.has(n.id)).flatMap(n => n.req.filter(r => T.pos.has(r)).map(r => {
+      const a = T.pos.get(r), c = T.pos.get(n.id), x1 = a.x + 80, y1 = a.y + 62, x2 = c.x + 80, y2 = c.y, m = (y1 + y2) / 2;
+      const on = st.get(r).level >= 3;
+      return `<path d="M${x1},${y1} C${x1},${m} ${x2},${m} ${x2},${y2}" fill="none" stroke="${on ? '#3bb273' : '#4a5260'}" stroke-width="${on ? 2.2 : 1.6}"${T.ghosts.has(r) ? ' stroke-dasharray="4 4"' : ''}/>`;
+    })).join('');
+    let lastG = null;
+    const bands = T.keys.map((k, i) => { const g = GRADES[Math.floor(k / 10)], first = g !== lastG; lastG = g;
+      return first ? `<div class="skrow" style="top:${i * 92 + 4}px"><span class="g g-${g}" title="Grade ${g}">${gradeLabel(g)}</span></div>` : ''; }).join('');
+    body = `<div class="skwrap"><div class="sktree" style="width:${T.width}px;height:${T.height}px">${bands}<svg width="${T.width}" height="${T.height}">${edges}</svg>
+      ${T.nodes.map(n => skillNode(n, st, T.ghosts.has(n.id), T.pos.get(n.id))).join('')}</div></div>
+      <div class="sklegend"><span><i style="border-color:var(--blue)"></i>Next up: everything before it is mastered</span><span><i style="border-color:var(--yellow)"></i>Unlocked or in progress</span>
+      <span><i style="border-color:var(--green);background:#22302a"></i>Mastered</span><span><i style="border-style:dashed"></i>Needed from another branch</span></div>`;
+  }
+  return `<div class="page wide"><div class="toprow"><div><h1>Skill tree</h1><p class="sub">Calisthenics skills ranked F, D, C, B, A, S and SS. Log a skill's exercise and it moves up by itself. Each skill has its own targets for unlocked, in progress and mastered: easier skills need more reps or a longer hold.</p></div>
+      <button class="btn red" data-act="sk-plan" title="Makes a template from the skills you're working on and the ones that are next up">Build a skills workout</button></div>
+    <div class="skhead"><div class="stat"><b>${top ? `<span class="g g-${top.grade}" style="font-size:18px;height:28px;min-width:36px">${top.grade}</span>` : '<span class="g g-F" style="opacity:.4;font-size:18px;height:28px;min-width:36px">-</span>'}</b><span>Rank (best skill mastered)</span></div>
+      <div class="stat"><b class="num">${pts}</b><span>Skill points</span></div>
+      <div class="stat"><b class="num">${mastered.length}/${SKILLS.length}</b><span>Mastered</span></div>
+      <div class="stat"><b class="num">${going.length}</b><span>In progress</span></div>
+      <div class="stat"><b style="font-size:15px;line-height:1.3">${nextUp.slice(0, 3).map(sk => esc(sk.name)).join(', ') || 'None'}</b><span>Next up</span></div></div>
+    <div class="chips">${[...BRANCHES, ['ranked', 'All by grade']].map(([k, l]) => `<button class="chip ${k === b ? 'on' : ''}" data-act="sk-branch" data-b="${k}">${l}</button>`).join('')}</div>
+    ${body}</div>`;
+}
+function skillStrip(sk){
+  const st = skillState(), x = st.get(sk.id);
+  return `<div class="startbar" style="border-left-color:var(--blue);margin:4px 0 18px"><span class="g g-${sk.grade}" style="font-size:16px;height:26px">${gradeLabel(sk.grade)}</span><div class="grow"><h3>${esc(sk.name)} in the skill tree</h3><p>${SKLEVELS[x.level]}. ${esc(sk.desc)}</p></div><button class="btn" data-act="sk-open" data-id="${sk.id}">Skill details</button></div>`;
+}
+async function openSkill(id){
+  const sk = SKBY.get(id); if (!sk) return;
+  const bests = skillBests();
+  const draw = () => { const st = skillState(bests), x = st.get(sk.id);
+    const link = r => { const o = SKBY.get(r), y = st.get(r); return `<span class="lk" data-sk="${r}">${esc(o.name)}</span> <span class="skst l${y.level}">(${SKLEVELS[y.level]})</span>`; };
+    const bt = bestText(sk, bests);
+    return `<div class="skm"><div class="row"><span class="g g-${sk.grade}" style="font-size:16px;height:26px">${gradeLabel(sk.grade)}</span><h2 style="margin:0">${esc(sk.name)}</h2></div>
+      <p class="muted" style="margin-top:8px">${esc(sk.desc)}</p>
+      <dl><dt>Branch</dt><dd>${esc(BRANCHES.find(r => r[0] === sk.branch)[1])}</dd><dt>Time to learn</dt><dd>${esc(sk.time)}</dd>
+      <dt>Type</dt><dd>${sk.iso ? 'Isometric (a hold)' : 'Dynamic (reps)'}</dd><dt>Muscles</dt><dd>${esc(sk.muscles)}</dd>
+      <dt>Logged as</dt><dd><span class="lk" data-ex="${esc(sk.ex)}">${esc(exInfo(sk.ex).name)}</span>${bt ? `, best ${bt}` : ', not logged yet'}</dd>
+      <dt>Needs</dt><dd>${sk.req.map(link).join(', ') || 'Nothing, start here'}</dd><dt>Unlocks</dt><dd>${sk.unlocks.map(link).join(', ') || 'Top of the branch'}</dd>
+      <dt>Targets</dt><dd>${(([u, p, m]) => `${targetText(sk, u)} unlocks, ${targetText(sk, p)} is in progress, ${targetText(sk, m)} or more is mastered`)(targetsOf(sk))}</dd></dl>
+      <p class="muted" style="font-size:12.5px">Status${x.manual != null ? ' (set by you)' : x.implied ? ' (mastered, because a skill after it is mastered)' : ` (from your workouts: ${SKLEVELS[x.auto]})`}</p>
+      <div class="opts"><button class="chip ${x.manual == null ? 'on' : ''}" data-sst="auto">From workouts</button>${SKLEVELS.map((l, i) => `<button class="chip ${x.manual === i ? 'on' : ''}" data-sst="${i}">${l}</button>`).join('')}</div></div>`; };
+  const p = modal(`<div id="skbody">${draw()}</div>`, [['Close', null, 'ghost'], ['Add to a workout', 'add', ''], ['Exercise history', 'ex', 'red']], true);
+  const m = $('#modal');
+  const ctl = new AbortController();
+  m.addEventListener('click', async ev => {
+    const o = ev.target.closest('[data-sst]');
+    if (o){ const v = o.dataset.sst; if (v === 'auto') delete S.skills.status[sk.id]; else S.skills.status[sk.id] = +v; (S.skills.t = S.skills.t || {})[sk.id] = Date.now();
+      $('#skbody').innerHTML = draw(); try { await saveSkills(); } catch (e) {} if (S.view === 'skills' || S.view === 'exercise') render(); return; }
+    const l = ev.target.closest('[data-sk]'); if (l){ m.querySelector('.mfoot .btn').click(); setTimeout(() => openSkill(l.dataset.sk), 0); return; }
+    const e = ev.target.closest('[data-ex]'); if (e){ m.querySelector('.mfoot .btn').click(); setTimeout(() => go('exercise', e.dataset.ex), 0); }
+  }, { signal: ctl.signal });
+  const r = await p;
+  ctl.abort();
+  if (r === 'ex') go('exercise', sk.ex);
+  else if (r === 'add') addSkillToWorkout(sk);
+}
+function skillEntry(sk, sets){
+  const ex = exInfo(sk.ex);
+  return {uid: uid(), exerciseId: ex.id, name: ex.name, type: ex.type, rest: 120, notes: '', sets: Array.from({length: sets || 3}, () => ({k: 'n', target: ex.type === 'time' ? {t: targetsOf(sk)[2]} : undefined}))};
+}
+function addSkillToWorkout(sk){
+  if (S.active){ S.active.exercises.push(skillEntry(sk)); saveActiveSoon(); S.ed = {mode: 'active', doc: S.active}; go('editor'); toast(`${sk.name} added to your workout`); return; }
+  startWorkout({id: null, name: sk.name + ' practice', notes: '', exercises: [skillEntry(sk)]});
+}
+function buildSkillsWorkout(){
+  const st = skillState(), lv = sk => st.get(sk.id).level;
+  const working = SKILLS.filter(sk => lv(sk) === 1 || lv(sk) === 2).sort((a, b) => GI(b.grade) - GI(a.grade));
+  const next = SKILLS.filter(sk => st.get(sk.id).next).sort((a, b) => GI(a.grade) - GI(b.grade));
+  const pick = [], per = {};
+  for (const sk of [...working, ...next]){ if (pick.length >= 8 || (per[sk.branch] || 0) >= 2 || pick.some(p => p.ex === sk.ex)) continue; pick.push(sk); per[sk.branch] = (per[sk.branch] || 0) + 1; }
+  if (!pick.length){ toast('Nothing to practise yet. Set a status on a skill first.'); return; }
+  const doc = {id: uid(), name: 'Skill practice', notes: 'Built from the skill tree: ' + pick.map(sk => sk.name).join(', '), exercises: pick.map(sk => skillEntry(sk))};
+  S.ed = {mode: 'template', doc}; go('editor');
+  toast('Check it over, then save it as a template');
+}
+
+/* ---------- settings ---------- */
+function settingsView(){
+  return `<div class="page"><div class="toprow"><div><h1>Settings</h1></div></div>
+    ${PHONE ? `<div class="pbox" style="max-width:560px"><h3>Kept on this device</h3><p class="dim" style="font-size:12px;float:right">Version ${BUILD}</p><p class="muted">${S.templates.length} templates, ${S.history.length} workouts. ${TOUCH ? 'Open Repped from its home screen icon so iOS keeps them safe. ' : ''}Turn on syncing below so your phone and computer share the same workouts.</p></div>${syncBox()}`
+    : `<div class="pbox" style="max-width:560px"><h3>Workouts folder</h3><p class="muted" style="margin-bottom:12px"><span class="dot ${S.connected ? '' : 'off'}" style="display:inline-block;margin-right:6px"></span>${esc(S.dirName)}: ${S.templates.length} templates, ${S.history.length} workouts</p>
+      <div class="row"><button class="btn" data-act="pick">Choose a different folder</button>${S.connected ? '' : '<button class="btn red" data-act="reconnect">Reconnect</button>'}</div>
+      <p class="dim" style="font-size:12.5px;margin-top:10px">Chrome or Edge can't remember folder access between visits, so you may be asked to allow it each time you open Repped.</p></div>`}
+    <div class="pbox" style="max-width:560px"><h3>Backup</h3><p class="muted" style="margin-bottom:12px">One file with every template, finished workout, your skill tree and settings. Export it on one device and import it on the other to move your progress (for example from your computer to your phone).</p>
+      <div class="row"><button class="btn" data-act="bk-export">Export backup</button><button class="btn" data-act="bk-import">Import backup</button></div>
+      <input type="file" id="bk-file" accept=".json,application/json" hidden></div>
+    <div class="pbox" style="max-width:560px"><h3>Workouts</h3>
+      <div class="field"><label for="srest">Default rest for new exercises (m:ss)</label><input class="inp" id="srest" value="${fmtDur(S.settings.defaultRest)}" style="width:120px"></div>
+      <label class="chkline"><input type="checkbox" id="ssound" ${S.settings.sound ? 'checked' : ''}> Beep when rest is over</label></div>
+    <div class="pbox" style="max-width:560px"><h3>Starter templates</h3><p class="muted" style="margin-bottom:10px">Upper, Lower, Cardio and Mobility. Only ones you don't already have are added.</p>
+      <button class="btn" data-act="starters-add" ${missingStarters().length ? '' : 'disabled'}>${missingStarters().length ? 'Add ' + andList(missingStarters().map(t => esc(t.name))) : 'All added'}</button></div></div>`;
+}
+
+/* ---------- print planner ---------- */
+function printView(){
+  const P = S.print;
+  const adds = S.templates.map(t => `<button class="btn" data-act="pr-add" data-id="${t.id}">+ ${esc(t.name)}</button>`).join('');
+  const series = P.series.map((id, i) => { const t = S.templates.find(x => x.id === id); return t ? `<li><span class="k num">${i + 1}</span><span class="n">${esc(t.name)}</span>
+    <button class="ibtn" data-act="pr-up" data-i="${i}" aria-label="Move up">↑</button><button class="ibtn" data-act="pr-down" data-i="${i}" aria-label="Move down">↓</button><button class="ibtn" data-act="pr-del" data-i="${i}" aria-label="Remove">✕</button></li>` : ''; }).join('');
+  const total = P.series.length * (P.repeat || 1);
+  return `<div class="page wide"><div class="toprow"><div><h1>Print sheets</h1><p class="sub">Build a run of workouts, then save it as a compact PDF to fill in with a pen.</p></div></div>
+    <div class="pgrid"><div class="pside">
+      <div class="pbox"><h3>Workouts in order</h3>${adds ? `<div class="addlist">${adds}</div>` : '<p class="muted">Create a template first.</p>'}
+        ${series ? `<ul class="series" style="margin-top:12px">${series}</ul>` : '<p class="dim" style="margin-top:10px;font-size:13px">Add workouts in the order you plan to do them.</p>'}
+        ${P.series.length ? `<div class="chkline" style="margin-top:12px">Rounds of this list <input class="inp" type="number" min="1" max="20" id="prep" value="${P.repeat}"></div><button class="btn ghost" data-act="pr-clear" style="margin-left:-10px">Clear list</button>` : ''}</div>
+      <div class="pbox"><h3>Sheet options</h3>
+        <div class="field"><label for="ptitle">Title on the sheet</label><input class="inp" id="ptitle" value="${esc(P.title)}" placeholder="e.g. Camping, half term"></div>
+        <label class="chkline"><input type="checkbox" id="plast" ${P.last ? 'checked' : ''}> Show last time's numbers</label>
+        <label class="chkline"><input type="checkbox" id="pnum" ${P.number ? 'checked' : ''}> Number the workouts</label>
+        <label class="chkline">Spare set boxes per exercise <input class="inp" type="number" min="0" max="3" id="pxs" value="${P.extraSets}"></label>
+        <label class="chkline">Blank exercise lines per workout <input class="inp" type="number" min="0" max="4" id="pxe" value="${P.extraEx}"></label></div>
+      <button class="btn red big" data-act="pr-print" style="width:100%" ${total ? '' : 'disabled'}>Save as PDF</button>
+      <p class="dim" style="font-size:12.5px;margin-top:8px">In the print window choose Save as PDF as the destination, A4 paper. When you're back, type the sheets in with History, Log a past workout.</p>
+    </div>
+    <div class="paperwrap" id="paperwrap"></div></div></div>`;
+}
+function sheetHTML(){
+  const P = S.print, list = [];
+  for (let r = 0; r < (P.repeat || 1); r++) for (const id of P.series){ const t = S.templates.find(x => x.id === id); if (t) list.push(t); }
+  if (!list.length) return '';
+  const cards = list.map((t, i) => {
+    const maxSets = Math.max(1, ...t.exercises.map(e => e.sets.length)) + (P.extraSets || 0);
+    const cols = Math.min(maxSets, 8);
+    const rows = t.exercises.map(e => {
+      const ex = exInfo(e.exerciseId, e), type = ex.type;
+      const last = P.last ? lastSetsFor(e.exerciseId) : null;
+      const tgt = e.sets.filter(s => s.target).map(s => setShort(type, s.target));
+      const unweighted = last && (type === 'reps' || (type === 'bw' && !last.some(s => s.w)));
+      const hint = [last ? 'Last ' + last.map(s => setShort(type, s)).join(', ') + (unweighted ? ' reps' : '') : '', !last && tgt.length ? 'Target ' + tgt.join(', ') : '', e.rest ? 'Rest ' + fmtDur(e.rest) : ''].filter(Boolean).join('; ');
+      const mid = type === 'wr' ? 'kg × reps' : type === 'bw' ? '+kg × reps' : type === 'reps' ? 'reps' : type === 'time' ? (e.sets[0]?.target?.t ? fmtDur(e.sets[0].target.t) : 'time') : 'km / time';
+      let n = 0, cells = '';
+      for (let c = 0; c < cols; c++){
+        const s = e.sets[c];
+        if (s){ const k = s.k || 'n'; const lab = k === 'w' ? 'W' : k === 'd' ? 'D' : k === 'f' ? 'F' : ++n;
+          const tt = type === 'time' && s.target?.t ? fmtDur(s.target.t) : type === 'cardio' && s.target?.t ? fmtDur(s.target.t) : mid;
+          cells += `<td class="c ${k === 'w' ? 'w' : ''}"><em>${lab}</em>${tt}</td>`; }
+        else if (c < e.sets.length + (P.extraSets || 0)) cells += `<td class="c x"><em>${++n}</em></td>`;
+        else cells += '<td></td>';
+      }
+      return `<tr><td class="ex"><b>${esc(ex.name)}</b>${hint ? `<small>${esc(hint)}</small>` : ''}</td>${cells}</tr>`;
+    }).join('');
+    let blanks = '';
+    for (let b = 0; b < (P.extraEx || 0); b++){ let cells = ''; for (let c = 0; c < cols; c++) cells += c < Math.min(cols, 4) ? `<td class="c x"><em>${c + 1}</em></td>` : '<td></td>'; blanks += `<tr><td class="ex blank"><b></b></td>${cells}</tr>`; }
+    return `<section class="ps"><header><b>${esc(t.name)}</b>${P.number ? `<span class="no">#${i + 1}</span>` : ''}<span class="ln">Date <i></i></span><span class="ln">Start <i class="s"></i></span><span class="ln">End <i class="s"></i></span></header>
+      <table><colgroup><col style="width:30%">${'<col>'.repeat(cols)}</colgroup>${rows}${blanks}</table><div class="nl">Notes <i></i></div></section>`;
+  }).join('');
+  const title = P.title.trim() || 'Workout log';
+  return `<div class="sheet"><div class="stitle"><b>${esc(title)}</b><span>${list.length} workout${list.length > 1 ? 's' : ''}, printed ${fmtDateShort(new Date().toISOString())}</span></div>${cards}
+    <p class="key">W = warm-up set (shaded), D = drop set, F = to failure. Dashed boxes are spare. Log these later in Repped: History, Log a past workout.</p></div>`;
+}
+function renderPrintPreview(){
+  const w = $('#paperwrap'); if (!w) return;
+  const html = sheetHTML();
+  w.innerHTML = html ? `<div class="paper">${html}</div>` : `<div class="empty" style="background:none;color:var(--muted)">Your sheet preview appears here.</div>`;
+  fitPaper();
+}
+function fitPaper(){
+  const w = $('#paperwrap'), p = w && w.querySelector('.paper'); if (!p) return;
+  p.style.zoom = Math.min(1, (w.clientWidth - 44) / 794).toFixed(3);
+}
+window.addEventListener('resize', fitPaper);
+function doPrint(){
+  const html = sheetHTML(); if (!html) return;
+  $('#printRoot').innerHTML = html;
+  const old = document.title; document.title = (S.print.title.trim() || 'Workout log') + ' - Repped';
+  setTimeout(() => { window.print(); document.title = old; }, 50);
+}
+
+/* ---------------- rest timer + clocks ---------------- */
+// how long the workout has run, leaving out the time it was paused
+const wkElapsed = d => Math.max(0, ((d.pausedAt ? new Date(d.pausedAt) : Date.now()) - new Date(d.start) - (d.pausedMs || 0)) / 1000);
+function togglePause(){
+  const d = S.active; if (!d) return;
+  if (d.pausedAt){
+    d.pausedMs = (d.pausedMs || 0) + (Date.now() - new Date(d.pausedAt)); delete d.pausedAt;
+    if (S.rest && S.rest.left != null){ S.rest.end = Date.now() + S.rest.left; delete S.rest.left; }
+    toast('Workout timer running again');
+  } else {
+    d.pausedAt = new Date().toISOString();
+    if (S.rest){ S.rest.left = S.rest.end - Date.now(); }
+    toast('Workout timer paused');
+  }
+  saveActiveSoon(); updateBars();
+  const b = $('#wkpause'); if (b){ b.textContent = d.pausedAt ? 'Resume' : 'Pause'; b.classList.toggle('on', !!d.pausedAt); }
+  const c = $('#elapsed'); if (c) c.classList.toggle('paused', !!d.pausedAt);
+}
+function startRest(sec){ S.rest = {end: Date.now() + sec * 1000, total: sec}; if (S.active && S.active.pausedAt) S.rest.left = sec * 1000; updateBars(); }
+let audioCtx;
+function unlockAudio(){
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain(); g.gain.value = 0; o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + .01); } catch (e) {}
+}
+document.addEventListener('pointerdown', unlockAudio, {passive: true});
+/* keep the screen on during a workout (where the phone allows it) */
+let wake = null;
+async function keepAwake(){
+  try { if (S.active && !wake && navigator.wakeLock && document.visibilityState === 'visible'){ wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); }
+    else if (!S.active && wake){ await wake.release(); wake = null; } } catch (e) { wake = null; }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible'){ keepAwake(); updateBars(); } });
+setInterval(keepAwake, 5000);
+function beep(){
+  if (!S.settings.sound) return;
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    [0, .22, .44].forEach((d, i) => { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.frequency.value = i === 2 ? 1175 : 880; o.connect(g); g.connect(audioCtx.destination);
+      const t = audioCtx.currentTime + d; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.35, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + .18); o.start(t); o.stop(t + .2); });
+  } catch (e) {}
+}
+function buzz(){ try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {} }
+function updateBars(){
+  const rb = $('#restbar');
+  if (S.rest && S.active){
+    const left = (S.rest.left != null ? S.rest.left : S.rest.end - Date.now()) / 1000;
+    if (left <= 0){ S.rest = null; rb.classList.remove('on'); beep(); buzz(); toast('Rest over'); }
+    else { rb.classList.add('on'); $('#restT').textContent = fmtDur(Math.ceil(left)); $('#restFill').style.width = (100 * (1 - left / S.rest.total)) + '%'; }
+  } else rb.classList.remove('on');
+  const showResume = S.active && !(S.view === 'editor' && S.ed?.mode === 'active') && S.dir;
+  $('#resume').classList.toggle('on', !!showResume && !rb.classList.contains('on'));
+  if (S.active){
+    const el = fmtDur(wkElapsed(S.active));
+    if (showResume){ $('#resumeName').textContent = S.active.name; $('#resumeClock').textContent = el + (S.active.pausedAt ? ' (paused)' : ''); }
+    const c = $('#elapsed'); if (c) c.textContent = el;
+  }
+}
+setInterval(updateBars, 250);
+
+/* ---------------- modals ---------------- */
+// buttons: [[label, value, classes]]. validate() may return false to keep it open.
+function modal(html, buttons, wide, validate, focusSel){
+  return new Promise(resolve => {
+    const m = $('#modal');
+    m.innerHTML = `<div class="mbox ${wide ? 'wide' : ''}" role="dialog" aria-modal="true">${html}<div class="mfoot">${buttons.map((b, i) => `<button class="btn ${b[2] || ''}" data-i="${i}">${esc(b[0])}</button>`).join('')}</div></div>`;
+    m.classList.add('on');
+    const close = v => { m.classList.remove('on'); m.innerHTML = ''; document.removeEventListener('keydown', onKey, true); resolve(v); };
+    const onKey = ev => { if (ev.key === 'Escape'){ ev.stopPropagation(); close(buttons.find(b => b[1] == null) ? null : undefined); }
+      if (ev.key === 'Enter' && ev.target.tagName !== 'TEXTAREA' && ev.target.tagName !== 'BUTTON'){ ev.preventDefault(); m.querySelector('.mfoot .btn:last-child').click(); } };
+    document.addEventListener('keydown', onKey, true);
+    m.querySelectorAll('.mfoot .btn').forEach(b => b.onclick = () => { const v = buttons[+b.dataset.i][1]; if (v != null && v !== false && validate && validate() === false) return; close(v); });
+    m.onclick = ev => { if (ev.target === m) close(null); };
+    const f = focusSel ? m.querySelector(focusSel) : m.querySelector('.mfoot .btn:last-child'); f?.focus(); if (f?.select) f.select();
+  });
+}
+const confirmBox = (title, text, ok) => modal(`<h2>${esc(title)}</h2>${text ? `<p class="muted">${esc(text)}</p>` : ''}`, [['Cancel', false, 'ghost'], [ok, true, 'red']]);
+async function promptBox(title, text, value){
+  let out = null;
+  const r = await modal(`<h2>${esc(title)}</h2>${text ? `<p class="muted" style="margin-bottom:10px">${esc(text)}</p>` : ''}<input class="inp" id="pbox" value="${esc(value ?? '')}">`,
+    [['Cancel', null, 'ghost'], ['OK', 'ok', 'red']], false, () => { out = $('#pbox').value; return true; }, '#pbox');
+  return r === 'ok' ? out : null;
+}
+
+/* ---------------- events ---------------- */
+document.addEventListener('click', async ev => {
+  const b = ev.target.closest('[data-act]'); if (!b || b.closest('#modal')) return;
+  const act = b.dataset.act;
+  if (b.closest('#editor')) return editorClick(b);
+  switch (act){
+    case 'nav': go(b.dataset.v); break;
+    case 'pick': pickFolder(); break;
+    case 'phone-start': (async () => { try { await connectHandle(await phoneRoot()); S._connectError = ''; S.view = 'workout'; render(); } catch (e) { S._connectError = 'Could not open the storage on this device: ' + e.message; render(); } })(); break;
+    case 'bk-export': exportBackup(); break;
+    case 'bk-import': $('#bk-file').click(); break;
+    case 'sy-connect': syncConnect().then(() => { if (sync.cfg && !sync._started){ sync._started = true; document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncSoon(800); }); window.addEventListener('online', () => syncSoon(1500)); setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 120000); } }); break;
+    case 'sy-now': syncNow(true); break;
+    case 'sy-stop': syncStop(); break;
+    case 'reconnect': reconnect(); break;
+    case 'resume': S.ed = {mode: 'active', doc: S.active}; go('editor'); break;
+    case 'start-empty': startWorkout(null); break;
+    case 'tpl-new': S.ed = {mode: 'template', doc: {id: uid(), name: '', notes: '', exercises: []}}; go('editor'); setTimeout(() => $('#wname')?.focus(), 0); break;
+    case 'tpl-open': openTemplate(b.dataset.id); break;
+    case 'hist-open': openSession(b.dataset.id); break;
+    case 'log-past': logPast(); break;
+    case 'ex-open': go('exercise', b.dataset.id); break;
+    case 'back-ex': if (S.active && S._fromEditor){ S._fromEditor = false; S.ed = {mode: 'active', doc: S.active}; go('editor'); } else go('exercises'); break;
+    case 'ex-filter': S.exFilter = b.dataset.c; render(); break;
+    case 'sk-branch': S.skBranch = b.dataset.b; try { localStorage.setItem('repped-sk-branch', S.skBranch); } catch (e) {} render(); break;
+    case 'sk-open': openSkill(b.dataset.id); break;
+    case 'sk-plan': buildSkillsWorkout(); break;
+    case 'exn-new': if (await editExerciseModal(null)) render(); break;
+    case 'exn-edit': if (await editExerciseModal(EXI.get(b.dataset.id))) render(); break;
+    case 'exn-del': { const ex = EXI.get(b.dataset.id);
+      if (exUsed(ex.id)){ toast(`${ex.name} is used in your templates or history, so it can't be deleted`, true); break; }
+      if (await confirmBox(`Delete ${ex.name}?`, '', 'Delete')){ S.custom = S.custom.filter(c => c.id !== ex.id); await saveCustom(); go('exercises'); } break; }
+    case 'rest-minus': if (S.rest){ S.rest.end -= 15000; S.rest.total = Math.max(1, S.rest.total - 15); updateBars(); } break;
+    case 'rest-plus': if (S.rest){ S.rest.end += 15000; S.rest.total += 15; updateBars(); } break;
+    case 'rest-skip': S.rest = null; updateBars(); break;
+    case 'pr-add': S.print.series.push(b.dataset.id); render(); break;
+    case 'pr-del': S.print.series.splice(+b.dataset.i, 1); render(); break;
+    case 'pr-up': { const i = +b.dataset.i, s = S.print.series; if (i > 0){ [s[i - 1], s[i]] = [s[i], s[i - 1]]; render(); } break; }
+    case 'pr-down': { const i = +b.dataset.i, s = S.print.series; if (i < s.length - 1){ [s[i + 1], s[i]] = [s[i], s[i + 1]]; render(); } break; }
+    case 'pr-clear': S.print.series = []; render(); break;
+    case 'pr-print': doPrint(); break;
+    case 'starters-add': { const add = missingStarters(); for (const t of add) await saveTemplate(t); render(); toast(`Added ${andList(add.map(t => t.name))}`); break; }
+    case 'starters-hide': S.settings.hideStarterOffer = true; await saveSettings(); render(); break;
+  }
+});
+// editor "ex-detail" should come back to the workout
+document.addEventListener('click', ev => { const b = ev.target.closest('[data-act="ex-detail"]'); if (b && S.ed?.mode === 'active') S._fromEditor = true; }, true);
+document.addEventListener('input', ev => {
+  const el = ev.target;
+  if (el.closest('#editor')) return editorInput(el);
+  if (el.id === 'exsearch'){ S.exSearch = el.value; S._refocusSearch = true; render(); return; }
+  const P = S.print;
+  if (el.id === 'ptitle'){ P.title = el.value; renderPrintPreview(); }
+  else if (el.id === 'prep'){ P.repeat = Math.max(1, Math.min(20, parseInt(el.value) || 1)); renderPrintPreview(); }
+  else if (el.id === 'pxs'){ P.extraSets = Math.max(0, Math.min(3, parseInt(el.value) || 0)); renderPrintPreview(); }
+  else if (el.id === 'pxe'){ P.extraEx = Math.max(0, Math.min(4, parseInt(el.value) || 0)); renderPrintPreview(); }
+});
+document.addEventListener('change', async ev => {
+  const el = ev.target, P = S.print;
+  if (el.id === 'plast'){ P.last = el.checked; renderPrintPreview(); }
+  else if (el.id === 'pnum'){ P.number = el.checked; renderPrintPreview(); }
+  else if (el.id === 'srest'){ const v = parseDur(el.value); if (v != null){ S.settings.defaultRest = v; el.value = fmtDur(v); await saveSettings(); toast('Saved'); } }
+  else if (el.id === 'ssound'){ S.settings.sound = el.checked; await saveSettings(); toast('Saved'); }
+  else if (el.classList.contains('sin') && el.dataset.f === 't'){ const exb = el.closest('.exb'), tr = el.closest('tr'); if (exb && tr){ const e = S.ed.doc.exercises[+exb.dataset.ei], s = e.sets[+tr.dataset.si];
+      const v = S.ed.mode === 'template' ? s.target?.t : s.t; el.value = v != null ? fmtDur(v) : ''; } }
+});
+document.addEventListener('keydown', ev => {
+  if (ev.target.closest && ev.target.closest('#editor')) editorKey(ev);
+  if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.getAttribute?.('role') === 'button'){ ev.preventDefault(); ev.target.click(); }
+});
+document.addEventListener('change', ev => { if (ev.target.id === 'bk-file'){ const f = ev.target.files[0]; ev.target.value = ''; if (f) importBackup(f); } });
+window.addEventListener('beforeunload', ev => { if (S.active){ try { localStorage.setItem('repped-active-backup', JSON.stringify({dir: S.dirName, session: S.active})); } catch (e) {} } });
+
+/* ---------------- start up ---------------- */
+const BUILD = '__BUILD__';
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+  // when you're online, look for a newer copy; it's used the next time nothing is in progress
+  const checkNew = async () => { try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const v = (await r.json()).build;
+      if (v && v !== BUILD){ let tried = ''; try { tried = localStorage.getItem('repped-tried') || ''; if (tried !== v) localStorage.setItem('repped-tried', v); } catch (e) {} if (tried === v) return; await fetch('index.html?t=' + Date.now(), {cache: 'reload'}); S._newVersion = true; if (!S.active && !document.querySelector('#modal.on') && S.view !== 'editor') location.reload(); else toast('A new version of Repped is ready. It loads next time you open the app'); } } catch (e) {} };
+  setTimeout(checkNew, 3000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(checkNew, 1500); });
+}
+(async function init(){
+  EXI = exIndex();
+  if (window.__reppedTestDir){ await connectHandle(await window.__reppedTestDir); if (!S.templates.length && !S.history.length && window.__reppedStarters) for (const t of starterTemplates()) await saveTemplate(t); }
+  else if (PHONE) { try { await connectHandle(await phoneRoot()); } catch (e) { S._connectError = 'Could not open the storage on this phone: ' + e.message; } }
+  else {
+    try {
+      const h = await idb.get('dir');
+      if (h){
+        S._remembered = h;
+        const perm = h.queryPermission ? await h.queryPermission({mode: 'readwrite'}) : 'granted';
+        if (perm === 'granted'){ try { await connectHandle(h); } catch (e) { S._connectError = `Couldn't open ${h.name}. Plug in the USB stick, then open it again.`; } }
+      }
+    } catch (e) {}
+  }
+  if (S.active && S.connected){ S.view = 'editor'; S.ed = {mode: 'active', doc: S.active}; }
+  render();
+  window.Repped.ready = true;
+  syncStart().then(() => { if (sync.cfg) sync._started = true; });
+  const p = host && host.takeWorkout ? host.takeWorkout() : null;
+  if (p){ S._pending = p; openPending(); }
+})();
+</script>
+</body>
+</html>
