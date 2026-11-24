@@ -95,6 +95,12 @@ textarea.inp{resize:vertical;min-height:60px}
 .wname{font-family:var(--head);font-size:26px;font-weight:600;background:none;border:0;border-bottom:1px dashed transparent;padding:2px 0;min-width:0;flex:1}
 .wname:hover,.wname:focus{border-bottom-color:var(--line);outline:none}
 .clock{font-family:var(--head);font-size:22px;color:var(--muted)}
+.clock.paused{color:var(--yellow);animation:blinkp 1.6s ease-in-out infinite}
+@keyframes blinkp{50%{opacity:.35}}
+.pausebtn.on{color:var(--yellow);border-color:var(--yellow)}
+.plist .qsk{display:flex;align-items:center;gap:10px;width:100%}
+.plist .qsk .n{flex:1;min-width:0}
+.plist .qbr{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:10px 8px 2px}
 .pastrow{display:flex;gap:12px;margin:10px 0 4px;flex-wrap:wrap}
 .pastrow .field{margin:0}
 .wnotes{margin:10px 0 6px}
@@ -917,6 +923,26 @@ async function openPending(){
   if (S.view !== 'workout') go('workout');
   openTemplate(t.id);
 }
+/* "Copy link": a link that opens Repped and starts this workout. Paste it into a task's notes in Red Timers. */
+const startLink = t => location.origin + location.pathname + '?start=' + encodeURIComponent(t.id) + '&n=' + encodeURIComponent(t.name);
+async function copyStartLink(t){
+  const u = startLink(t);
+  try { await navigator.clipboard.writeText(u); toast('Link copied. Paste it into a task\'s notes in Red Timers'); }
+  catch (e) { await modal(`<h2>Link to start ${esc(t.name)}</h2><p class="muted">Copy this and paste it into a task's notes in Red Timers.</p><input class="inp" id="lnk" value="${esc(u)}" readonly style="width:100%;margin-top:8px" onfocus="this.select()">`, [['Done', true, 'red']], false, null, '#lnk'); }
+}
+// opened from a start link: start that workout (or carry on with the one in progress)
+async function startFromLink(){
+  const q = new URLSearchParams(location.search), id = q.get('start'); if (!id) return;
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  const name = q.get('n') || '';
+  const find = () => S.templates.find(x => x.id === id) || S.templates.find(x => x.name.trim().toLowerCase() === name.trim().toLowerCase());
+  if (!S.connected){ toast(`Open your workouts folder first, then use the link again`, true); return; }
+  if (S.active){ S.ed = {mode: 'active', doc: S.active}; go('editor'); toast(S.active.name === name ? `${name} is already going` : 'A workout is already in progress'); return; }
+  let t = find();
+  if (!t && sync.cfg){ try { await syncNow(); } catch (e) {} t = find(); }
+  if (!t){ toast(`There's no ${name || 'such'} workout here`, true); return; }
+  startWorkout(t);
+}
 window.Repped = { open(p){ S._pending = p; openPending(); },
   // Revision Master's "Reopen files" button gives permission, then asks for the folder to be opened again
   async reopen(){ const h = S.dir || S._remembered; if (!h || S.connected) return; try { if ((await h.queryPermission({mode: 'readwrite'})) !== 'granted') return; await connectHandle(h); S._connectError = ''; if (S.active){ S.view = 'editor'; S.ed = {mode: 'active', doc: S.active}; } render(); openPending(); } catch (e) {} } };
@@ -1201,8 +1227,9 @@ async function openTemplate(id){
   }).join('');
   const r = await modal(`<h2>${esc(t.name)}</h2>${t.notes ? `<p class="muted" style="margin-bottom:8px">${esc(t.notes)}</p>` : ''}
     <table style="width:100%;font-size:13.5px;border-collapse:collapse">${rows || '<tr><td class="muted">No exercises yet</td></tr>'}</table>`,
-    [['Delete', 'del', 'ghost danger'], ['Duplicate', 'dup', 'ghost'], ['Edit', 'edit', ''], ['Start workout', 'start', 'red']], true);
+    [['Delete', 'del', 'ghost danger'], ['Duplicate', 'dup', 'ghost'], ['Copy link', 'link', 'ghost'], ['Edit', 'edit', ''], ['Start workout', 'start', 'red']], true);
   if (r === 'start') startWorkout(t);
+  else if (r === 'link') copyStartLink(t);
   else if (r === 'edit') { S.ed = {mode: 'template', doc: clone(t)}; go('editor'); }
   else if (r === 'dup') { const c = clone(t); c.id = uid(); delete c._file; c.name = t.name + ' copy'; await saveTemplate(c); render(); toast('Template duplicated'); }
   else if (r === 'del') { if (await confirmBox(`Delete the ${t.name} template?`, 'Your past workouts stay in History.', 'Delete')){ await deleteTemplate(t); render(); toast('Template deleted'); } }
@@ -1221,7 +1248,7 @@ function editorView(){
   const {mode, doc} = S.ed;
   const title = mode === 'template' ? 'Template name' : 'Workout name';
   let head = `<div class="edhead"><input class="wname" id="wname" value="${esc(doc.name)}" aria-label="${title}" placeholder="${title}">`;
-  if (mode === 'active') head += `<span class="clock num" id="elapsed">${fmtDur((Date.now() - new Date(doc.start)) / 1000)}</span><button class="btn green" data-act="finish">Finish</button>`;
+  if (mode === 'active') head += `<span class="clock num${doc.pausedAt ? ' paused' : ''}" id="elapsed">${fmtDur(wkElapsed(doc))}</span><button class="btn ghost pausebtn${doc.pausedAt ? ' on' : ''}" id="wkpause" data-act="wk-pause" title="Pause or resume the workout timer">${doc.pausedAt ? 'Resume' : 'Pause'}</button><button class="btn green" data-act="finish">Finish</button>`;
   else if (mode === 'template') head += `<button class="btn ghost" data-act="ed-cancel">Cancel</button><button class="btn green" data-act="tpl-save">Save template</button>`;
   else head += `<button class="btn ghost" data-act="ed-cancel">Cancel</button><button class="btn green" data-act="past-save">Save workout</button>`;
   head += `</div>`;
@@ -1330,8 +1357,9 @@ async function editorClick(btn){
       if (ex.type !== e.type) e.sets.forEach(s => { delete s.w; delete s.r; delete s.t; delete s.d; delete s.target; s.done = false; });
       Object.assign(e, {exerciseId: ex.id, name: ex.name, type: ex.type}); edChanged(); rerenderEditor(); } break; }
     case 'ex-detail': if (mode === 'active') go('exercise', e.exerciseId); break;
-    case 'ex-add': { const picked = await pickExercises(true); if (picked?.length){ for (const ex of picked) doc.exercises.push(newExerciseEntry(ex)); edChanged(); rerenderEditor();
+    case 'ex-add': { const picked = await pickExercises(true); if (picked?.length){ for (const ex of picked) doc.exercises.push(picked.quick && picked.quick.has(ex.id) ? skillEntry(picked.quick.get(ex.id)) : newExerciseEntry(ex)); edChanged(); rerenderEditor();
       $('#main').scrollTop = $('#main').scrollHeight; } break; }
+    case 'wk-pause': togglePause(); break;
     case 'finish': finishWorkout(); break;
     case 'discard': if (await confirmBox('Discard this workout?', 'Nothing from it will be saved.', 'Discard')){ await clearActive(); S.ed = null; go('workout'); toast('Workout discarded'); } break;
     case 'tpl-save': saveTemplateFromEditor(); break;
@@ -1380,7 +1408,8 @@ async function finishWorkout(){
     .filter(e => e.sets.length);
   if (!out.exercises.length){ toast('Tick off at least one set before finishing'); return; }
   out.end = new Date().toISOString();
-  out.durationSec = Math.round((new Date(out.end) - new Date(out.start)) / 1000);
+  out.durationSec = Math.round(wkElapsed(doc));
+  delete out.pausedAt; delete out.pausedMs;
   delete out.templateStructure;
   // Offer to update the template if the shape changed
   const t = S.templates.find(x => x.id === doc.templateId);
@@ -1435,13 +1464,25 @@ async function savePastFromEditor(){
 /* ---------- exercise picker ---------- */
 function pickExercises(multi){
   return new Promise(resolve => {
-    const sel = new Set(); let cat = 'All', q = '';
+    const sel = new Set(), quick = new Map(); let q = '';
+    // Quick add: the skills you've unlocked or are working on, in skill tree order (branch by branch, then down the tree)
+    const st = skillState(), qsk = [];
+    if (multi) for (const [br] of BRANCHES){ const T = layoutBranch(br); T.rows.flat().forEach(n => { const x = st.get(n.id); if (!T.ghosts.has(n.id) && (x.level === 1 || x.level === 2)) qsk.push(n); }); }
+    let cat = qsk.length ? 'Quick add' : 'All';
     const draw = () => {
-      const list = allEx().filter(e => (cat === 'All' || e.cat === cat) && e.name.toLowerCase().includes(q.toLowerCase()));
-      $('#plist').innerHTML = list.map(e => `<label class="${sel.has(e.id) ? 'sel' : ''}"><input type="${multi ? 'checkbox' : 'radio'}" name="pk" value="${esc(e.id)}" ${sel.has(e.id) ? 'checked' : ''}>${esc(e.name)}<small>${esc(e.cat)}</small></label>`).join('') || '<p class="muted" style="padding:8px">No match. Create it with New exercise.</p>';
-      $('#pchips').innerHTML = ['All', ...CATS].map(c => `<button class="chip ${c === cat ? 'on' : ''}" data-c="${c}">${c}</button>`).join('');
+      $('#pchips').innerHTML = [...(qsk.length ? ['Quick add'] : []), 'All', ...CATS].map(c => `<button class="chip ${c === cat ? 'on' : ''}" data-c="${c}">${c}</button>`).join('');
       $('#padd').textContent = multi ? `Add ${sel.size || ''}`.trim() : 'Choose';
       $('#padd').disabled = !sel.size;
+      if (cat === 'Quick add'){
+        let lastB = '';
+        const list = qsk.filter(sk => (sk.name + ' ' + exInfo(sk.ex).name).toLowerCase().includes(q.toLowerCase()));
+        $('#plist').innerHTML = list.map(sk => { const x = st.get(sk.id), head = sk.branch !== lastB ? `<div class="qbr">${esc(BRANCHES.find(b => b[0] === sk.branch)[1])}</div>` : ''; lastB = sk.branch;
+          return head + `<label class="${sel.has(sk.ex) && quick.get(sk.ex) === sk ? 'sel' : ''}"><input type="checkbox" name="pk" value="${esc(sk.ex)}" data-sk="${esc(sk.id)}" ${sel.has(sk.ex) && quick.get(sk.ex) === sk ? 'checked' : ''}><span class="qsk"><span class="g g-${sk.grade}">${gradeLabel(sk.grade)}</span><span class="n">${esc(sk.name)}</span><small class="skst l${x.level}">${SKLEVELS[x.level]}</small></span></label>`; }).join('')
+          || '<p class="muted" style="padding:8px">No match.</p>';
+        return;
+      }
+      const list = allEx().filter(e => (cat === 'All' || e.cat === cat) && e.name.toLowerCase().includes(q.toLowerCase()));
+      $('#plist').innerHTML = list.map(e => `<label class="${sel.has(e.id) ? 'sel' : ''}"><input type="${multi ? 'checkbox' : 'radio'}" name="pk" value="${esc(e.id)}" ${sel.has(e.id) ? 'checked' : ''}>${esc(e.name)}<small>${esc(e.cat)}</small></label>`).join('') || '<p class="muted" style="padding:8px">No match. Create it with New exercise.</p>';
     };
     const m = $('#modal');
     m.innerHTML = `<div class="mbox wide"><h2>${multi ? 'Add exercises' : 'Replace exercise'}</h2>
@@ -1453,11 +1494,12 @@ function pickExercises(multi){
     $('#psearch').oninput = ev => { q = ev.target.value; draw(); };
     $('#pchips').onclick = ev => { const c = ev.target.closest('.chip'); if (c){ cat = c.dataset.c; draw(); } };
     $('#plist').onchange = ev => { const id = ev.target.value; if (!multi) sel.clear(); if (ev.target.checked) sel.add(id); else sel.delete(id);
+      if (ev.target.dataset.sk && ev.target.checked) quick.set(id, SKBY.get(ev.target.dataset.sk)); else quick.delete(id);
       $('#plist').querySelectorAll('label').forEach(l => l.classList.toggle('sel', sel.has(l.querySelector('input').value)));
       $('#padd').textContent = multi ? `Add ${sel.size || ''}`.trim() : 'Choose'; $('#padd').disabled = !sel.size; };
-    $('#plist').ondblclick = ev => { const l = ev.target.closest('label'); if (l){ const id = l.querySelector('input').value; sel.add(id); close([...sel].map(i => EXI.get(i))); } };
+    $('#plist').ondblclick = ev => { const l = ev.target.closest('label'); if (l){ const id = l.querySelector('input').value; sel.add(id); const sk = l.querySelector('input').dataset.sk; if (sk) quick.set(id, SKBY.get(sk)); const out = [...sel].map(i => EXI.get(i)); out.quick = quick; close(out); } };
     $('#pcancel').onclick = () => close(null);
-    $('#padd').onclick = () => close([...sel].map(i => EXI.get(i)));
+    $('#padd').onclick = () => { const out = [...sel].map(i => EXI.get(i)); out.quick = quick; close(out); };
     $('#pnew').onclick = async () => { m.classList.remove('on');
       const ex = await editExerciseModal(null, q); if (ex){ close([ex]); } else { pickExercises(multi).then(resolve); } };
     m.onclick = ev => { if (ev.target === m) close(null); };
@@ -1853,7 +1895,24 @@ function doPrint(){
 }
 
 /* ---------------- rest timer + clocks ---------------- */
-function startRest(sec){ S.rest = {end: Date.now() + sec * 1000, total: sec}; updateBars(); }
+// how long the workout has run, leaving out the time it was paused
+const wkElapsed = d => Math.max(0, ((d.pausedAt ? new Date(d.pausedAt) : Date.now()) - new Date(d.start) - (d.pausedMs || 0)) / 1000);
+function togglePause(){
+  const d = S.active; if (!d) return;
+  if (d.pausedAt){
+    d.pausedMs = (d.pausedMs || 0) + (Date.now() - new Date(d.pausedAt)); delete d.pausedAt;
+    if (S.rest && S.rest.left != null){ S.rest.end = Date.now() + S.rest.left; delete S.rest.left; }
+    toast('Workout timer running again');
+  } else {
+    d.pausedAt = new Date().toISOString();
+    if (S.rest){ S.rest.left = S.rest.end - Date.now(); }
+    toast('Workout timer paused');
+  }
+  saveActiveSoon(); updateBars();
+  const b = $('#wkpause'); if (b){ b.textContent = d.pausedAt ? 'Resume' : 'Pause'; b.classList.toggle('on', !!d.pausedAt); }
+  const c = $('#elapsed'); if (c) c.classList.toggle('paused', !!d.pausedAt);
+}
+function startRest(sec){ S.rest = {end: Date.now() + sec * 1000, total: sec}; if (S.active && S.active.pausedAt) S.rest.left = sec * 1000; updateBars(); }
 let audioCtx;
 function unlockAudio(){
   try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -1879,15 +1938,15 @@ function buzz(){ try { if (navigator.vibrate) navigator.vibrate([200, 100, 200])
 function updateBars(){
   const rb = $('#restbar');
   if (S.rest && S.active){
-    const left = (S.rest.end - Date.now()) / 1000;
+    const left = (S.rest.left != null ? S.rest.left : S.rest.end - Date.now()) / 1000;
     if (left <= 0){ S.rest = null; rb.classList.remove('on'); beep(); buzz(); toast('Rest over'); }
     else { rb.classList.add('on'); $('#restT').textContent = fmtDur(Math.ceil(left)); $('#restFill').style.width = (100 * (1 - left / S.rest.total)) + '%'; }
   } else rb.classList.remove('on');
   const showResume = S.active && !(S.view === 'editor' && S.ed?.mode === 'active') && S.dir;
   $('#resume').classList.toggle('on', !!showResume && !rb.classList.contains('on'));
   if (S.active){
-    const el = fmtDur((Date.now() - new Date(S.active.start)) / 1000);
-    if (showResume){ $('#resumeName').textContent = S.active.name; $('#resumeClock').textContent = el; }
+    const el = fmtDur(wkElapsed(S.active));
+    if (showResume){ $('#resumeName').textContent = S.active.name; $('#resumeClock').textContent = el + (S.active.pausedAt ? ' (paused)' : ''); }
     const c = $('#elapsed'); if (c) c.textContent = el;
   }
 }
@@ -1991,7 +2050,7 @@ document.addEventListener('change', ev => { if (ev.target.id === 'bk-file'){ con
 window.addEventListener('beforeunload', ev => { if (S.active){ try { localStorage.setItem('repped-active-backup', JSON.stringify({dir: S.dirName, session: S.active})); } catch (e) {} } });
 
 /* ---------------- start up ---------------- */
-const BUILD = '2026-11-16.1624';
+const BUILD = '2026-11-24.1546';
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
   // when you're online, look for a newer copy; it's used the next time nothing is in progress
@@ -2020,6 +2079,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   syncStart().then(() => { if (sync.cfg) sync._started = true; });
   const p = host && host.takeWorkout ? host.takeWorkout() : null;
   if (p){ S._pending = p; openPending(); }
+  startFromLink();
 })();
 </script>
 </body>
