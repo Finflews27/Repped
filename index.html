@@ -641,7 +641,22 @@ for (const sk of SKILLS){
   sk.ex = ex.id;
   if (!SK_FOR_EX.has(ex.id)) SK_FOR_EX.set(ex.id, sk);
 }
-const exIndex = () => { const m = new Map(); for (const e of [...BUILTIN, ...S.custom]) m.set(e.id, e); return m; };
+/* A skill that is a hold is always logged with a time, so the skill tree and your workouts agree
+   (this also fixes an exercise saved as reps that the skill tree treats as a hold). */
+const exIndex = () => { const m = new Map(); for (const e of [...BUILTIN, ...S.custom]){ const sk = SK_FOR_EX.get(e.id); if (sk && sk.iso && e.type !== 'time') e.type = 'time'; m.set(e.id, e); } return m; };
+// templates and the workout in progress take each exercise's current type (Reps or Time), keeping what fits
+function syncTypes(doc, keepLogged){
+  if (!doc || !Array.isArray(doc.exercises)) return false;
+  let changed = false;
+  for (const e of doc.exercises){
+    const ex = EXI.get(e.exerciseId); if (!ex || ex.type === e.type || !TYPES[ex.type]) continue;
+    if (keepLogged && e.sets.some(s => s.done)) continue;              // (sets already ticked off stay as they were logged)
+    const ok = new Set(TYPES[ex.type].cols.map(c => c[0]));
+    e.sets.forEach(st => { for (const f of ['w','r','t','d']){ if (!ok.has(f)) delete st[f]; if (st.target && !ok.has(f)) delete st.target[f]; } });
+    e.type = ex.type; changed = true;
+  }
+  return changed;
+}
 let EXI = new Map();
 const allEx = () => [...BUILTIN, ...S.custom].sort((a, b) => a.name.localeCompare(b.name));
 const exInfo = (id, fallback) => EXI.get(id) || fallback || {id, name: 'Unknown exercise', cat: 'Other', type: 'wr'};
@@ -964,6 +979,7 @@ async function loadAll(){
   let act = active && active.kind === 'session' ? active : null;
   if (!act){ try { const b = JSON.parse(localStorage.getItem('repped-active-backup') || 'null'); if (b && b.dir === S.dirName) act = b.session; } catch (e) {} }
   S.active = act;
+  S.templates.forEach(t => syncTypes(t)); if (S.active && syncTypes(S.active, true)) saveActiveSoon();
 }
 
 /* ---------------- data operations ---------------- */
@@ -1761,7 +1777,7 @@ async function openSkill(id){
     return `<div class="skm"><div class="row"><span class="g g-${sk.grade}" style="font-size:16px;height:26px">${gradeLabel(sk.grade)}</span><h2 style="margin:0">${esc(sk.name)}</h2></div>
       <p class="muted" style="margin-top:8px">${esc(sk.desc)}</p>
       <dl><dt>Branch</dt><dd>${esc(BRANCHES.find(r => r[0] === sk.branch)[1])}</dd><dt>Time to learn</dt><dd>${esc(sk.time)}</dd>
-      <dt>Type</dt><dd>${sk.iso ? 'Isometric (a hold)' : 'Dynamic (reps)'}</dd><dt>Muscles</dt><dd>${esc(sk.muscles)}</dd>
+      <dt>Type</dt><dd>${skillHold(sk) ? 'Isometric (a hold, logged as a time)' : 'Dynamic (logged as reps)'}</dd><dt>Muscles</dt><dd>${esc(sk.muscles)}</dd>
       <dt>Logged as</dt><dd><span class="lk" data-ex="${esc(sk.ex)}">${esc(exInfo(sk.ex).name)}</span>${bt ? `, best ${bt}` : ', not logged yet'}</dd>
       <dt>Needs</dt><dd>${sk.req.map(link).join(', ') || 'Nothing, start here'}</dd><dt>Unlocks</dt><dd>${sk.unlocks.map(link).join(', ') || 'Top of the branch'}</dd>
       <dt>Targets</dt><dd>${(([u, p, m]) => `${targetText(sk, u)} unlocks, ${targetText(sk, p)} is in progress, ${targetText(sk, m)} or more is mastered`)(targetsOf(sk))}</dd></dl>
@@ -2050,7 +2066,7 @@ document.addEventListener('change', ev => { if (ev.target.id === 'bk-file'){ con
 window.addEventListener('beforeunload', ev => { if (S.active){ try { localStorage.setItem('repped-active-backup', JSON.stringify({dir: S.dirName, session: S.active})); } catch (e) {} } });
 
 /* ---------------- start up ---------------- */
-const BUILD = '2026-11-24.1546';
+const BUILD = '2026-11-25.0036';
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
   // when you're online, look for a newer copy; it's used the next time nothing is in progress
